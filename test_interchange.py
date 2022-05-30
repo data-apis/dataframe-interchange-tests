@@ -1,70 +1,77 @@
-from importlib import import_module
-from itertools import permutations
-from types import ModuleType
-from typing import Any, Callable
+from typing import Any, Callable, Dict, NamedTuple
 
 import pytest
 
 example_dict = {"n": [42]}
 
-
-def get_example(lib: ModuleType) -> Any:
-    if lib.__name__ == "pandas":
-        return lib.DataFrame(example_dict)
-    elif lib.__name__ == "vaex":
-        return lib.from_dict(example_dict)
-    else:
-        raise NotImplementedError(f"{lib.__name__=}")
+DataFrame = Any
 
 
-def get_asserter(lib: ModuleType) -> Callable[[Any, Any], None]:
-    if lib.__name__ == "pandas":
-
-        def assert_frame_equal(a, b):
-            lib.testing.assert_frame_equal(a, b)
-
-    elif lib.__name__ == "vaex":
-
-        def assert_frame_equal(a, b):
-            assert a == b
-
-    else:
-        raise NotImplementedError(f"{lib.__name__=}")
-    return assert_frame_equal
+class LibraryInfo(NamedTuple):
+    example: DataFrame
+    from_dataframe: Callable[[DataFrame], DataFrame]
+    equals: Callable[[DataFrame, DataFrame], bool]
 
 
-def get_from_dataframe(lib: ModuleType) -> Callable[[Any], Any]:
-    if lib.__name__ == "pandas":
-        from pandas.api.exchange import from_dataframe
-    elif lib.__name__ == "vaex":
-        from vaex.dataframe_protocol import from_dataframe_to_vaex as from_dataframe
-    else:
-        raise NotImplementedError(f"{lib.__name__=}")
-    return from_dataframe
+lib_params: list = []
+lib_to_linfo: Dict[str, LibraryInfo] = {}
+
+try:
+    import pandas
+    from pandas.api.exchange import from_dataframe as pandas_from_dataframe
+except ImportError as e:
+    lib_params.append(pytest.param("pandas", marks=pytest.mark.skip(reason=e.msg)))
+else:
+    linfo = LibraryInfo(
+        example=pandas.DataFrame(example_dict),
+        from_dataframe=pandas_from_dataframe,
+        equals=lambda df1, df2: df1.equals(df2),
+    )
+    lib_to_linfo["pandas"] = linfo
+    lib_params.append("pandas")
+
+try:
+    import vaex
+    from vaex.dataframe_protocol import from_dataframe_to_vaex as vaex_from_dataframe
+except ImportError as e:
+    lib_params.append(pytest.param("vaex", marks=pytest.mark.skip(reason=e.msg)))
+else:
+    linfo = LibraryInfo(
+        example=vaex.from_dict(example_dict),
+        from_dataframe=vaex_from_dataframe,
+        equals=lambda df1, df2: df1 == df2,
+    )
+    lib_to_linfo["vaex"] = linfo
+    lib_params.append("vaex")
+
+try:
+    import modin
+    from modin.config import Engine
+    from modin.pandas.utils import from_dataframe as modin_from_dataframe
+except ImportError as e:
+    lib_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
+else:
+    Engine.put("ray")
+    linfo = LibraryInfo(
+        example=modin.pandas.DataFrame(example_dict),
+        from_dataframe=modin_from_dataframe,
+        equals=lambda df1, df2: df1.equals(df2),
+    )
+    lib_to_linfo["modin"] = linfo
+    lib_params.append("modin")
 
 
-LIBRARY_NAMES = ["pandas", "vaex"]
-libraries = []
-for name in LIBRARY_NAMES:
-    try:
-        lib = import_module(name)
-    except ImportError:
-        pass
-    else:
-        libraries.append(lib)
-roundtrip_params = []
-for orig_lib, dest_lib in permutations(libraries, 2):
-    id_ = f"{orig_lib.__name__}-{dest_lib.__name__}"
-    p = pytest.param(orig_lib, dest_lib, id=id_)
-    roundtrip_params.append(p)
-
-
-@pytest.mark.parametrize("orig_lib, dest_lib", roundtrip_params)
-def test_from_dataframe_roundtrip(orig_lib, dest_lib):
-    asserter = get_asserter(orig_lib)
-    orig_from_dataframe = get_from_dataframe(orig_lib)
-    dest_from_dataframe = get_from_dataframe(dest_lib)
-    orig_df = get_example(orig_lib)
-    dest_df = dest_from_dataframe(orig_df)
-    roundtrip_df = orig_from_dataframe(dest_df)
-    asserter(roundtrip_df, orig_df)
+# parametrize order is intentional for sensical pytest param ids
+@pytest.mark.parametrize("dest_lib", lib_params)
+@pytest.mark.parametrize("orig_lib", lib_params)
+def test_from_dataframe_roundtrip(orig_lib: str, dest_lib: str):
+    """
+    Round-trip of dataframe interchange results in a dataframe identical to the
+    original dataframe.
+    """
+    orig_linfo = lib_to_linfo[orig_lib]
+    dest_linfo = lib_to_linfo[dest_lib]
+    orig_df = orig_linfo.example
+    dest_df = dest_linfo.from_dataframe(orig_df)
+    roundtrip_df = orig_linfo.from_dataframe(dest_df)
+    assert orig_linfo.equals(roundtrip_df, orig_df)
