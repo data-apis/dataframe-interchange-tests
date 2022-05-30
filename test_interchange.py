@@ -66,7 +66,7 @@ else:
 @pytest.mark.parametrize("orig_lib", lib_params)
 def test_from_dataframe_roundtrip(orig_lib: str, dest_lib: str):
     """
-    Round-trip of dataframe interchange results in a dataframe identical to the
+    Round trip of dataframe interchange results in a dataframe identical to the
     original dataframe.
     """
     orig_linfo = lib_to_linfo[orig_lib]
@@ -74,4 +74,14 @@ def test_from_dataframe_roundtrip(orig_lib: str, dest_lib: str):
     orig_df = orig_linfo.example
     dest_df = dest_linfo.from_dataframe(orig_df)
     roundtrip_df = orig_linfo.from_dataframe(dest_df)
-    assert orig_linfo.equals(roundtrip_df, orig_df)
+    assert orig_linfo.equals(roundtrip_df, orig_df), (
+        f"Round trip of dataframe did not result in an identical dataframe.\n"
+        "\n"
+        "Original:\n"
+        "\n"
+        f"{orig_df}\n"
+        "\n"
+        "Result:\n"
+        "\n"
+        f"{roundtrip_df}\n"
+    )
