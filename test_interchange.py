@@ -10,7 +10,7 @@ DataFrame = Any
 class LibraryInfo(NamedTuple):
     example: DataFrame
     from_dataframe: Callable[[DataFrame], DataFrame]
-    equals: Callable[[DataFrame, DataFrame], bool]
+    frame_equal: Callable[[DataFrame, DataFrame], bool]
 
 
 lib_params: list = []
@@ -25,7 +25,7 @@ else:
     linfo = LibraryInfo(
         example=pandas.DataFrame(example_dict),
         from_dataframe=pandas_from_dataframe,
-        equals=lambda df1, df2: df1.equals(df2),
+        frame_equal=lambda df1, df2: df1.equals(df2),
     )
     lib_to_linfo["pandas"] = linfo
     lib_params.append("pandas")
@@ -38,7 +38,7 @@ except ImportError as e:
     lib_params.append(pytest.param("vaex", marks=pytest.mark.skip(reason=e.msg)))
 else:
 
-    def vaex_equals(df1: DataFrame, df2: DataFrame) -> bool:
+    def vaex_frame_equal(df1: DataFrame, df2: DataFrame) -> bool:
         same_shape = df1.shape == df2.shape
         if not same_shape:
             return False
@@ -47,14 +47,14 @@ else:
         if not same_cols:
             return False
         for col in columns:
-            if not np.array_equal(df1[col].values, df2[col].values):
+            if not np.array_equal(df1[col].values, df2[col].values, equal_nan=True):
                 return False
         return True
 
     linfo = LibraryInfo(
         example=vaex.from_dict(example_dict),
         from_dataframe=vaex_from_dataframe,
-        equals=vaex_equals,
+        frame_equal=vaex_frame_equal,
     )
     lib_to_linfo["vaex"] = linfo
     lib_params.append("vaex")
@@ -70,7 +70,7 @@ else:
     linfo = LibraryInfo(
         example=modin.pandas.DataFrame(example_dict),
         from_dataframe=modin_from_dataframe,
-        equals=lambda df1, df2: df1.equals(df2),
+        frame_equal=lambda df1, df2: df1.equals(df2),
     )
     lib_to_linfo["modin"] = linfo
     lib_params.append("modin")
@@ -89,7 +89,7 @@ def test_from_dataframe_roundtrip(orig_lib: str, dest_lib: str):
     orig_df = orig_linfo.example
     dest_df = dest_linfo.from_dataframe(orig_df)
     roundtrip_df = orig_linfo.from_dataframe(dest_df)
-    assert orig_linfo.equals(roundtrip_df, orig_df), (
+    assert orig_linfo.frame_equal(roundtrip_df, orig_df), (
         f"Round trip of dataframe did not result in an identical dataframe.\n"
         "\n"
         f"Original dataframe ({orig_lib}):\n"
