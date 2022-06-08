@@ -31,15 +31,30 @@ else:
     lib_params.append("pandas")
 
 try:
+    import numpy as np
     import vaex
     from vaex.dataframe_protocol import from_dataframe_to_vaex as vaex_from_dataframe
 except ImportError as e:
     lib_params.append(pytest.param("vaex", marks=pytest.mark.skip(reason=e.msg)))
 else:
+
+    def vaex_equals(df1: DataFrame, df2: DataFrame) -> bool:
+        same_shape = df1.shape == df2.shape
+        if not same_shape:
+            return False
+        columns = df1.get_column_names()
+        same_cols = columns == df2.get_column_names()
+        if not same_cols:
+            return False
+        for col in columns:
+            if not np.array_equal(df1[col].values, df2[col].values):
+                return False
+        return True
+
     linfo = LibraryInfo(
         example=vaex.from_dict(example_dict),
         from_dataframe=vaex_from_dataframe,
-        equals=lambda df1, df2: df1 == df2,
+        equals=vaex_equals,
     )
     lib_to_linfo["vaex"] = linfo
     lib_params.append("vaex")
@@ -77,11 +92,15 @@ def test_from_dataframe_roundtrip(orig_lib: str, dest_lib: str):
     assert orig_linfo.equals(roundtrip_df, orig_df), (
         f"Round trip of dataframe did not result in an identical dataframe.\n"
         "\n"
-        "Original:\n"
+        f"Original dataframe ({orig_lib}):\n"
         "\n"
         f"{orig_df}\n"
         "\n"
-        "Result:\n"
+        f"Intermediate dataframe ({dest_lib}):\n"
+        "\n"
+        f"{dest_df}\n"
+        "\n"
+        f"Round trip dataframe ({orig_lib}):\n"
         "\n"
         f"{roundtrip_df}\n"
     )
