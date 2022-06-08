@@ -61,6 +61,7 @@ else:
 
 try:
     import modin
+    import ray  # noqa: F401
     from modin.config import Engine
     from modin.pandas.utils import from_dataframe as modin_from_dataframe
 except ImportError as e:
