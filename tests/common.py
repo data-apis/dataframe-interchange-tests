@@ -1,4 +1,4 @@
-from typing import Callable, Dict, NamedTuple
+from typing import Any, Callable, Dict, NamedTuple
 
 import pytest
 from hypothesis import assume
@@ -8,14 +8,16 @@ from .api import DataFrame
 
 __all__ = ["lib_params", "lib_to_linfo"]
 
+TopLevelDataFrame = Any
+
 
 class LibraryInfo(NamedTuple):
-    strategy: st.SearchStrategy[DataFrame]
-    from_dataframe: Callable[[DataFrame], DataFrame]
-    frame_equal: Callable[[DataFrame, DataFrame], bool]
-    get_compliant_dataframe: Callable[
-        [DataFrame], DataFrame
-    ] = lambda df: df.__dataframe__()["dataframe"]
+    strategy: st.SearchStrategy[TopLevelDataFrame]
+    from_dataframe: Callable[[TopLevelDataFrame], DataFrame]
+    frame_equal: Callable[[TopLevelDataFrame, DataFrame], bool]
+    get_compliant_dataframe: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
+        df.__dataframe__()["dataframe"]
+    )
 
 
 lib_params: list = []
