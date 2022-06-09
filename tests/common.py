@@ -13,6 +13,9 @@ class LibraryInfo(NamedTuple):
     strategy: st.SearchStrategy[DataFrame]
     from_dataframe: Callable[[DataFrame], DataFrame]
     frame_equal: Callable[[DataFrame, DataFrame], bool]
+    get_compliant_dataframe: Callable[
+        [DataFrame], DataFrame
+    ] = lambda df: df.__dataframe__()["dataframe"]
 
 
 lib_params: list = []
@@ -50,6 +53,7 @@ else:
         strategy=dataframes(),
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
+        get_compliant_dataframe=lambda df: df.__dataframe__(),
     )
     lib_to_linfo["pandas"] = linfo
     lib_params.append("pandas")
@@ -79,6 +83,7 @@ else:
         strategy=st.just(vaex.from_dict({"n": [42]})),
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
+        get_compliant_dataframe=lambda df: df.__dataframe__(),
     )
     lib_to_linfo["vaex"] = linfo
     lib_params.append("vaex")
