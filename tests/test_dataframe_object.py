@@ -7,7 +7,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from .api import DataFrame
-from .common import lib_params, lib_to_linfo
+from .wrappers import LibraryInfo
 
 VAR_KINDS = (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
 KIND_TO_STR = {
@@ -70,11 +70,9 @@ def _test_signature(func, stub):
         )
 
 
-@pytest.mark.parametrize("lib", lib_params)
 @given(data=st.data())
 @settings(max_examples=1)
-def test_top_level_dunder_dataframe(lib: str, data: st.DataObject):
-    linfo = lib_to_linfo[lib]
+def test_top_level_dunder_dataframe(linfo: LibraryInfo, data: st.DataObject):
     df = data.draw(linfo.strategy, label="df")
     assert hasattr(df, "__dataframe__")
     assert isinstance(df.__dataframe__, Callable)
@@ -92,13 +90,11 @@ for _, stub in getmembers(DataFrame, predicate=isfunction):
 
 
 @pytest.mark.parametrize("stub", stub_params)
-@pytest.mark.parametrize("lib", lib_params)
 @given(data=st.data())
 @settings(max_examples=1)
 def test_compliant_dataframe_method_signature(
-    lib: str, stub: FunctionType, data: st.DataObject
+    linfo: LibraryInfo, stub: FunctionType, data: st.DataObject
 ):
-    linfo = lib_to_linfo[lib]
     df = data.draw(linfo.strategy, label="df")
     _df = linfo.get_compliant_dataframe(df)
     assert hasattr(_df, stub.__name__)
