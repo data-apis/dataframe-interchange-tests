@@ -16,7 +16,7 @@ def test_from_dataframe_roundtrip(
     Round trip of dataframe interchange results in a dataframe identical to the
     original dataframe.
     """
-    orig_df = data.draw(orig_linfo.strategy, label="df")
+    orig_df = data.draw(orig_linfo.toplevel_strategy, label="df")
     dest_df = dest_linfo.from_dataframe(orig_df)
     roundtrip_df = orig_linfo.from_dataframe(dest_df)
     assert orig_linfo.frame_equal(roundtrip_df, orig_df), (

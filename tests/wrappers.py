@@ -13,12 +13,16 @@ TopLevelDataFrame = Any
 
 class LibraryInfo(NamedTuple):
     name: str
-    strategy: st.SearchStrategy[TopLevelDataFrame]
+    toplevel_strategy: st.SearchStrategy[TopLevelDataFrame]
     from_dataframe: Callable[[TopLevelDataFrame], DataFrame]
     frame_equal: Callable[[TopLevelDataFrame, DataFrame], bool]
     get_compliant_dataframe: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
         df.__dataframe__()["dataframe"]
     )
+
+    @property
+    def compliant_strategy(self) -> st.SearchStrategy[TopLevelDataFrame]:
+        return self.toplevel_strategy.map(self.get_compliant_dataframe)
 
     def __repr__(self) -> str:
         return f"LibraryInfo(<{self.name}>)"
@@ -56,7 +60,7 @@ else:
 
     linfo = LibraryInfo(
         name="pandas",
-        strategy=dataframes(),
+        toplevel_strategy=dataframes(),
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
         get_compliant_dataframe=lambda df: df.__dataframe__(),
@@ -86,7 +90,7 @@ else:
 
     linfo = LibraryInfo(
         name="vaex",
-        strategy=st.just(vaex.from_dict({"n": [42]})),
+        toplevel_strategy=st.just(vaex.from_dict({"n": [42]})),
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
         get_compliant_dataframe=lambda df: df.__dataframe__(),
@@ -104,7 +108,7 @@ else:
     Engine.put("ray")
     linfo = LibraryInfo(
         name="modin",
-        strategy=st.just(modin.pandas.DataFrame({"n": [42]})),
+        toplevel_strategy=st.just(modin.pandas.DataFrame({"n": [42]})),
         from_dataframe=modin_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
     )
