@@ -6,7 +6,7 @@ import pytest
 from hypothesis import assume, given, note, settings
 from hypothesis import strategies as st
 
-from .api import Column, DataFrame
+from .api import *
 from .wrappers import LibraryInfo
 
 VAR_KINDS = (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD)
@@ -112,5 +112,28 @@ def test_column_method(linfo: LibraryInfo, stub: FunctionType, data: st.DataObje
     note(f"{col=}")
     assert hasattr(col, stub.__name__)
     method = getattr(col, stub.__name__)
+    assert isinstance(method, Callable)
+    _test_signature(method, stub)
+
+
+buf_stub_params = []
+for _, stub in getmembers(Buffer, predicate=isfunction):
+    p = pytest.param(stub, id=stub.__name__)
+    buf_stub_params.append(p)
+
+
+@pytest.mark.parametrize("stub", buf_stub_params)
+@given(data=st.data())
+@settings(max_examples=1)
+def test_buffer_method(linfo: LibraryInfo, stub: FunctionType, data: st.DataObject):
+    df = data.draw(linfo.compliant_strategy, label="df")
+    assume(df.num_columns() > 0)
+    col = df.get_column(0)
+    note(f"{col=}")
+    bufinfo = col.get_buffers()
+    buf, _ = bufinfo["data"]
+    note(f"{buf=}")
+    assert hasattr(buf, stub.__name__)
+    method = getattr(buf, stub.__name__)
     assert isinstance(method, Callable)
     _test_signature(method, stub)
