@@ -1,5 +1,5 @@
 import pytest
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from .wrappers import LibraryInfo, linfo_params
@@ -9,6 +9,7 @@ from .wrappers import LibraryInfo, linfo_params
 @pytest.mark.parametrize("dest_linfo", linfo_params)
 @pytest.mark.parametrize("orig_linfo", linfo_params)
 @given(data=st.data())
+@settings(deadline=1000)  # namely for modin
 def test_from_dataframe_roundtrip(
     orig_linfo: LibraryInfo, dest_linfo: LibraryInfo, data: st.DataObject
 ):

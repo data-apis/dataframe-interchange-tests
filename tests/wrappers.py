@@ -30,6 +30,10 @@ class LibraryInfo(NamedTuple):
 
 linfo_params = []
 
+
+# pandas
+# ------
+
 try:
     import numpy as np
     import pandas as pd
@@ -67,6 +71,9 @@ else:
     )
     linfo_params.append(pytest.param(linfo, id=linfo.name))
 
+# vaex
+# ----
+
 try:
     import numpy as np
     import vaex
@@ -75,7 +82,7 @@ except ImportError as e:
     linfo_params.append(pytest.param("vaex", marks=pytest.mark.skip(reason=e.msg)))
 else:
 
-    def vaex_frame_equal(df1: DataFrame, df2: DataFrame) -> bool:
+    def vaex_frame_equal(df1: TopLevelDataFrame, df2: TopLevelDataFrame) -> bool:
         same_shape = df1.shape == df2.shape
         if not same_shape:
             return False
@@ -97,6 +104,11 @@ else:
     )
     linfo_params.append(pytest.param(linfo, id=linfo.name))
 
+
+# modin
+# -----
+
+
 try:
     import modin
     import ray  # noqa: F401
@@ -105,6 +117,7 @@ try:
 except ImportError as e:
     linfo_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
 else:
+    ray.init()
     Engine.put("ray")
     linfo = LibraryInfo(
         name="modin",
@@ -113,3 +126,6 @@ else:
         frame_equal=lambda df1, df2: df1.equals(df2),
     )
     linfo_params.append(pytest.param(linfo, id=linfo.name))
+
+
+# TODO: cudf
