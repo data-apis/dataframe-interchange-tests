@@ -16,12 +16,12 @@ def _test_dunder_dataframe(df):
 
 
 @given(data=st.data())
-def test_toplevel_dunder_dataframe(linfo: LibraryInfo, data: st.DataObject):
-    df = data.draw(linfo.toplevel_strategy, label="df")
+def test_toplevel_dunder_dataframe(libinfo: LibraryInfo, data: st.DataObject):
+    df = data.draw(libinfo.toplevel_strategy, label="df")
     _test_dunder_dataframe(df)
 
 
 @given(data=st.data())
-def test_dunder_dataframe(linfo: LibraryInfo, data: st.DataObject):
-    df = data.draw(linfo.compliant_strategy, label="df")
+def test_dunder_dataframe(libinfo: LibraryInfo, data: st.DataObject):
+    df = data.draw(libinfo.compliant_strategy, label="df")
     _test_dunder_dataframe(df)

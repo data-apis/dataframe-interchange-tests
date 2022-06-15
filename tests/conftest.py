@@ -1,6 +1,6 @@
-from .wrappers import linfo_params
+from .wrappers import libinfo_params
 
 
 def pytest_generate_tests(metafunc):
-    if "linfo" in metafunc.fixturenames:
-        metafunc.parametrize("linfo", linfo_params)
+    if "libinfo" in metafunc.fixturenames:
+        metafunc.parametrize("libinfo", libinfo_params)

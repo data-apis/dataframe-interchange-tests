@@ -72,8 +72,8 @@ def _test_signature(func, stub):
 
 @given(data=st.data())
 @settings(max_examples=1)
-def test_toplevel_dataframe_dunder_dataframe(linfo: LibraryInfo, data: st.DataObject):
-    df = data.draw(linfo.toplevel_strategy, label="df")
+def test_toplevel_dataframe_dunder_dataframe(libinfo: LibraryInfo, data: st.DataObject):
+    df = data.draw(libinfo.toplevel_strategy, label="df")
     assert hasattr(df, "__dataframe__")
     assert isinstance(df.__dataframe__, Callable)
     _test_signature(df.__dataframe__, DataFrame.__dataframe__)
@@ -88,8 +88,10 @@ for _, stub in getmembers(DataFrame, predicate=isfunction):
 @pytest.mark.parametrize("stub", df_stub_params)
 @given(data=st.data())
 @settings(max_examples=1)
-def test_dataframe_method(linfo: LibraryInfo, stub: FunctionType, data: st.DataObject):
-    df = data.draw(linfo.compliant_strategy, label="df")
+def test_dataframe_method(
+    libinfo: LibraryInfo, stub: FunctionType, data: st.DataObject
+):
+    df = data.draw(libinfo.compliant_strategy, label="df")
     assert hasattr(df, stub.__name__)
     method = getattr(df, stub.__name__)
     assert isinstance(method, Callable)
@@ -105,8 +107,8 @@ for _, stub in getmembers(Column, predicate=isfunction):
 @pytest.mark.parametrize("stub", col_stub_params)
 @given(data=st.data())
 @settings(max_examples=1)
-def test_column_method(linfo: LibraryInfo, stub: FunctionType, data: st.DataObject):
-    df = data.draw(linfo.compliant_strategy, label="df")
+def test_column_method(libinfo: LibraryInfo, stub: FunctionType, data: st.DataObject):
+    df = data.draw(libinfo.compliant_strategy, label="df")
     assume(df.num_columns() > 0)
     col = df.get_column(0)
     note(f"{col=}")
@@ -125,8 +127,8 @@ for _, stub in getmembers(Buffer, predicate=isfunction):
 @pytest.mark.parametrize("stub", buf_stub_params)
 @given(data=st.data())
 @settings(max_examples=1)
-def test_buffer_method(linfo: LibraryInfo, stub: FunctionType, data: st.DataObject):
-    df = data.draw(linfo.compliant_strategy, label="df")
+def test_buffer_method(libinfo: LibraryInfo, stub: FunctionType, data: st.DataObject):
+    df = data.draw(libinfo.compliant_strategy, label="df")
     assume(df.num_columns() > 0)
     col = df.get_column(0)
     note(f"{col=}")

@@ -6,7 +6,7 @@ from hypothesis import strategies as st
 
 from .api import DataFrame
 
-__all__ = ["LibraryInfo", "linfo_params"]
+__all__ = ["LibraryInfo", "libinfo_params"]
 
 TopLevelDataFrame = Any
 
@@ -28,7 +28,7 @@ class LibraryInfo(NamedTuple):
         return f"LibraryInfo(<{self.name}>)"
 
 
-linfo_params = []
+libinfo_params = []
 
 
 # pandas
@@ -40,7 +40,7 @@ try:
     from hypothesis.extra import pandas as pds
     from pandas.api.exchange import from_dataframe as pandas_from_dataframe
 except ImportError as e:
-    linfo_params.append(pytest.param("pandas", marks=pytest.mark.skip(reason=e.msg)))
+    libinfo_params.append(pytest.param("pandas", marks=pytest.mark.skip(reason=e.msg)))
 else:
     valid_dtypes = [np.bool_]  # TODO: str, datetimes, categories
     for kind in ["int", "uint"]:
@@ -62,14 +62,14 @@ else:
         assume(df.shape[0] != 0)  # TODO: generate empty dataframes
         return df
 
-    linfo = LibraryInfo(
+    libinfo = LibraryInfo(
         name="pandas",
         toplevel_strategy=dataframes(),
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
         get_compliant_dataframe=lambda df: df.__dataframe__(),
     )
-    linfo_params.append(pytest.param(linfo, id=linfo.name))
+    libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
 
 # vaex
 # ----
@@ -79,7 +79,7 @@ try:
     import vaex
     from vaex.dataframe_protocol import from_dataframe_to_vaex as vaex_from_dataframe
 except ImportError as e:
-    linfo_params.append(pytest.param("vaex", marks=pytest.mark.skip(reason=e.msg)))
+    libinfo_params.append(pytest.param("vaex", marks=pytest.mark.skip(reason=e.msg)))
 else:
 
     def vaex_frame_equal(df1: TopLevelDataFrame, df2: TopLevelDataFrame) -> bool:
@@ -95,14 +95,14 @@ else:
                 return False
         return True
 
-    linfo = LibraryInfo(
+    libinfo = LibraryInfo(
         name="vaex",
         toplevel_strategy=st.just(vaex.from_dict({"n": [42]})),
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
         get_compliant_dataframe=lambda df: df.__dataframe__(),
     )
-    linfo_params.append(pytest.param(linfo, id=linfo.name))
+    libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
 
 
 # modin
@@ -115,17 +115,18 @@ try:
     from modin.config import Engine
     from modin.pandas.utils import from_dataframe as modin_from_dataframe
 except ImportError as e:
-    linfo_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
+    libinfo_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
 else:
     ray.init()
     Engine.put("ray")
-    linfo = LibraryInfo(
+    libinfo = LibraryInfo(
         name="modin",
         toplevel_strategy=st.just(modin.pandas.DataFrame({"n": [42]})),
         from_dataframe=modin_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
+        get_compliant_dataframe=lambda df: df.__dataframe__(),
     )
-    linfo_params.append(pytest.param(linfo, id=linfo.name))
+    libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
 
 
 # TODO: cudf
