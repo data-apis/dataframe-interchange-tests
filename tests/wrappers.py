@@ -111,7 +111,7 @@ else:
 
 try:
     import modin
-    import ray  # noqa: F401
+    import ray
     from modin.config import Engine
     from modin.pandas.utils import from_dataframe as modin_from_dataframe
 except ImportError as e:
@@ -123,10 +123,26 @@ else:
         name="modin",
         toplevel_strategy=st.just(modin.pandas.DataFrame({"n": [42]})),
         from_dataframe=modin_from_dataframe,
-        frame_equal=lambda df1, df2: df1.equals(df2),
+        frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
         get_compliant_dataframe=lambda df: df.__dataframe__(),
     )
     libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
 
 
-# TODO: cudf
+# cudf
+# ----
+
+try:
+    import cudf
+    from cudf.core.df_protocol import from_dataframe as cudf_from_dataframe
+except ImportError as e:
+    libinfo_params.append(pytest.param("cudf", marks=pytest.mark.skip(reason=e.msg)))
+else:
+    libinfo = LibraryInfo(
+        name="cudf",
+        toplevel_strategy=st.just(cudf.DataFrame({"n": [42]})),
+        from_dataframe=cudf_from_dataframe,
+        frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
+        get_compliant_dataframe=lambda df: df.__dataframe__(),
+    )
+    libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
