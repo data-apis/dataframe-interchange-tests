@@ -9,7 +9,7 @@ from .typing import DataDict
 __all__ = ["data_dicts"]
 
 
-valid_dtypes: List[str] = ["bool", "str", "datetime64[ns]"]  # TODO: category
+valid_dtypes: List[str] = ["bool", "datetime64[ns]"]  # TODO: str, category
 for kind in ["int", "uint"]:
     for bitwidth in [8, 16, 32, 64]:
         valid_dtypes.append(f"{kind}{bitwidth}")
