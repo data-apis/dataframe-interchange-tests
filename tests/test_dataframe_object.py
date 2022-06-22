@@ -1,10 +1,10 @@
 from typing import Callable
 
-import pandas as pd
 from hypothesis import given
 from hypothesis import strategies as st
 
-from .strategies import pandas_dataframes
+from .strategies import data_dicts
+from .typing import DataDict
 from .wrappers import LibraryInfo
 
 
@@ -29,7 +29,7 @@ def test_dunder_dataframe(libinfo: LibraryInfo, data: st.DataObject):
     _test_dunder_dataframe(df)
 
 
-@given(_df=pandas_dataframes())
-def test_num_columns(libinfo: LibraryInfo, _df: pd.DataFrame):
-    df = libinfo.pandas_to_compliant(_df)
-    assert df.num_columns() == len(_df.columns)
+@given(data_dict=data_dicts())
+def test_num_columns(libinfo: LibraryInfo, data_dict: DataDict):
+    df = libinfo.data_to_compliant(data_dict)
+    assert df.num_columns() == len(data_dict)

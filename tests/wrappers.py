@@ -1,11 +1,12 @@
 from typing import Any, Callable, NamedTuple
 
-import pandas as pd
+import numpy as np
 import pytest
 from hypothesis import strategies as st
 
 from .api import DataFrame
-from .strategies import pandas_dataframes
+from .strategies import data_dicts
+from .typing import DataDict
 
 __all__ = ["LibraryInfo", "libinfo_params"]
 
@@ -14,19 +15,19 @@ TopLevelDataFrame = Any
 
 class LibraryInfo(NamedTuple):
     name: str
-    pandas_to_toplevel: Callable[[pd.DataFrame], TopLevelDataFrame]
+    data_to_toplevel: Callable[[DataDict], TopLevelDataFrame]
     from_dataframe: Callable[[TopLevelDataFrame], DataFrame]
     frame_equal: Callable[[TopLevelDataFrame, DataFrame], bool]
     get_compliant_dataframe: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
         df.__dataframe__()["dataframe"]
     )
 
-    def pandas_to_compliant(self, df: pd.DataFrame) -> DataFrame:
-        return self.get_compliant_dataframe(self.pandas_to_toplevel(df))
+    def data_to_compliant(self, data_dict: DataDict) -> DataFrame:
+        return self.get_compliant_dataframe(self.data_to_toplevel(data_dict))
 
     @property
     def toplevel_strategy(self) -> st.SearchStrategy[TopLevelDataFrame]:
-        return pandas_dataframes().map(self.pandas_to_toplevel)
+        return data_dicts().map(self.data_to_toplevel)
 
     @property
     def compliant_strategy(self) -> st.SearchStrategy[TopLevelDataFrame]:
@@ -43,13 +44,14 @@ libinfo_params = []
 # ------
 
 try:
+    import pandas as pd
     from pandas.api.exchange import from_dataframe as pandas_from_dataframe
 except ImportError as e:
     libinfo_params.append(pytest.param("pandas", marks=pytest.mark.skip(reason=e.msg)))
 else:
     libinfo = LibraryInfo(
         name="pandas",
-        pandas_to_toplevel=lambda df: df,
+        data_to_toplevel=pd.DataFrame,
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
         get_compliant_dataframe=lambda df: df.__dataframe__(),
@@ -60,14 +62,13 @@ else:
 # ----
 
 try:
-    import numpy as np
     import vaex
     from vaex.dataframe_protocol import from_dataframe_to_vaex as vaex_from_dataframe
 except ImportError as e:
     libinfo_params.append(pytest.param("vaex", marks=pytest.mark.skip(reason=e.msg)))
 else:
 
-    def vaex_frame_equal(df1: TopLevelDataFrame, df2: TopLevelDataFrame) -> bool:
+    def vaex_frame_equal(df1, df2) -> bool:
         same_shape = df1.shape == df2.shape
         if not same_shape:
             return False
@@ -82,7 +83,7 @@ else:
 
     libinfo = LibraryInfo(
         name="vaex",
-        pandas_to_toplevel=vaex.from_pandas,
+        data_to_toplevel=lambda data: vaex.from_items(*data.items()),
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
         get_compliant_dataframe=lambda df: df.__dataframe__(),
@@ -106,7 +107,7 @@ else:
     Engine.put("ray")
     libinfo = LibraryInfo(
         name="modin",
-        pandas_to_toplevel=modin.pandas.DataFrame,
+        data_to_toplevel=modin.pandas.DataFrame,
         from_dataframe=modin_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
         get_compliant_dataframe=lambda df: df.__dataframe__(),
@@ -125,7 +126,7 @@ except ImportError as e:
 else:
     libinfo = LibraryInfo(
         name="cudf",
-        pandas_to_toplevel=cudf.DataFrame.from_pandas,
+        data_to_toplevel=cudf.DataFrame,
         from_dataframe=cudf_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
         get_compliant_dataframe=lambda df: df.__dataframe__(),

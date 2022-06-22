@@ -1,27 +1,40 @@
-import numpy as np
-import pandas as pd
+from typing import List
+
+from hypothesis import given
 from hypothesis import strategies as st
-from hypothesis.extra import pandas as pds
+from hypothesis.extra import numpy as nps
 
-__all__ = ["pandas_dataframes"]
+from .typing import DataDict
+
+__all__ = ["data_dicts"]
 
 
-valid_dtypes = [np.bool_]  # TODO: str, datetimes, categories
+valid_dtypes: List[str] = ["bool", "str", "datetime64[ns]"]  # TODO: category
 for kind in ["int", "uint"]:
     for bitwidth in [8, 16, 32, 64]:
-        valid_dtypes.append(np.dtype(f"{kind}{bitwidth}"))
+        valid_dtypes.append(f"{kind}{bitwidth}")
 for bitwidth in [32, 64]:
-    valid_dtypes.append(np.dtype(f"float{bitwidth}"))
+    valid_dtypes.append(f"float{bitwidth}")
 
 
 @st.composite
-def pandas_dataframes(draw) -> st.SearchStrategy[pd.DataFrame]:
-    colnames_strat = st.from_regex("[a-z]+", fullmatch=True)
-    colnames = draw(st.lists(colnames_strat, min_size=1, unique=True))
-    columns = []
+def data_dicts(draw) -> st.SearchStrategy[DataDict]:
+    colnames_strat = st.from_regex("[a-z]+", fullmatch=True)  # TODO: more valid names
+    nrows = draw(st.integers(0, 10))
+    colnames = draw(st.lists(colnames_strat, max_size=10, unique=True))
+    data = {}
     for colname in colnames:
         dtype = draw(st.sampled_from(valid_dtypes))
-        column = pds.column(colname, dtype=dtype)
-        columns.append(column)
-    df = draw(pds.data_frames(columns))
-    return df
+        x = draw(nps.arrays(dtype=dtype, shape=nrows))
+        data[colname] = x
+    return data
+
+
+@given(data_dicts())
+def test_data_dicts(data_dict: DataDict):
+    if len(data_dict) != 0:
+        arrays = list(data_dict.values())
+        nrows = arrays[0].size
+        for x in data_dict.values():
+            assert x.ndim == 1
+            assert x.size == nrows
