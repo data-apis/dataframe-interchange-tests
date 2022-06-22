@@ -20,8 +20,8 @@ for bitwidth in [32, 64]:
 @st.composite
 def data_dicts(draw) -> st.SearchStrategy[DataDict]:
     colnames_strat = st.from_regex("[a-z]+", fullmatch=True)  # TODO: more valid names
-    nrows = draw(st.integers(0, 10))
-    colnames = draw(st.lists(colnames_strat, max_size=10, unique=True))
+    colnames = draw(st.lists(colnames_strat, min_size=1, max_size=5, unique=True))
+    nrows = draw(st.integers(1, 5))
     data = {}
     for colname in colnames:
         dtype = draw(st.sampled_from(valid_dtypes))
