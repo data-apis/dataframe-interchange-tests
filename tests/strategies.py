@@ -18,16 +18,26 @@ for bitwidth in [32, 64]:
 
 
 @st.composite
-def data_dicts(draw) -> st.SearchStrategy[DataDict]:
+def data_dicts(
+    draw, *, allow_zero_cols: bool = True, allow_zero_rows: bool = True
+) -> DataDict:
+    min_ncols = 0 if allow_zero_cols else 1
     colnames_strat = st.from_regex("[a-z]+", fullmatch=True)  # TODO: more valid names
-    colnames = draw(st.lists(colnames_strat, min_size=1, max_size=5, unique=True))
-    nrows = draw(st.integers(1, 5))
+    colnames = draw(
+        st.lists(colnames_strat, min_size=min_ncols, max_size=5, unique=True)
+    )
+    min_nrows = 0 if allow_zero_rows else 1
+    nrows = draw(st.integers(min_nrows, 5))
     data = {}
     for colname in colnames:
         dtype = draw(st.sampled_from(valid_dtypes))
         x = draw(nps.arrays(dtype=dtype, shape=nrows))
         data[colname] = x
     return data
+
+
+# ------------------------------------------------------------------------------
+# Meta tests
 
 
 @given(data_dicts())

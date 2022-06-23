@@ -1,11 +1,24 @@
 from typing import Callable, Iterable
 
+import numpy as np
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from .strategies import data_dicts
-from .typing import DataDict
 from .wrappers import LibraryInfo
+
+
+def test_library_supports_zero_cols(libinfo: LibraryInfo):
+    df = libinfo.data_to_toplevel({})
+    # Just initialising a dataframe might not catch that a library doesn't
+    # support zero-column dataframes - using a method like repr might!
+    repr(df)
+
+
+def test_library_supports_zero_rows(libinfo: LibraryInfo):
+    df = libinfo.data_to_toplevel({"foo_col": np.asarray([])})
+    # See above comment
+    repr(df)
 
 
 def _test_dunder_dataframe(df):
@@ -29,34 +42,41 @@ def test_dunder_dataframe(libinfo: LibraryInfo, data: st.DataObject):
     _test_dunder_dataframe(df)
 
 
-@given(data_dict=data_dicts())
-def test_num_columns(libinfo: LibraryInfo, data_dict: DataDict):
+@given(data=st.data())
+def test_num_columns(libinfo: LibraryInfo, data: st.DataObject):
+    data_dict = data.draw(data_dicts(**libinfo.data_dicts_kwargs), label="data_dict")
     df = libinfo.data_to_compliant(data_dict)
     out = df.num_columns()
     assert isinstance(out, int)
     assert out == len(data_dict)
 
 
-@given(data_dict=data_dicts())
-def test_num_rows(libinfo: LibraryInfo, data_dict: DataDict):
+@given(data=st.data())
+def test_num_rows(libinfo: LibraryInfo, data: st.DataObject):
+    data_dict = data.draw(
+        data_dicts(**{"allow_zero_cols": False, **libinfo.data_dicts_kwargs}),
+        label="data_dict",
+    )
     df = libinfo.data_to_compliant(data_dict)
-    nrows = next(iter(data_dict.values())).size
+    nrows = next(x for x in data_dict.values()).size
     out = df.num_rows()
     assume(out is not None)
     assert isinstance(out, int)
     assert out == nrows
 
 
-@given(data_dict=data_dicts())
-def test_num_chunks(libinfo: LibraryInfo, data_dict: DataDict):
+@given(data=st.data())
+def test_num_chunks(libinfo: LibraryInfo, data: st.DataObject):
+    data_dict = data.draw(data_dicts(**libinfo.data_dicts_kwargs), label="data_dict")
     df = libinfo.data_to_compliant(data_dict)
     out = df.num_chunks()
     assert isinstance(out, int)
     # result is implementation-dependant
 
 
-@given(data_dict=data_dicts())
-def test_column_names(libinfo: LibraryInfo, data_dict: DataDict):
+@given(data=st.data())
+def test_column_names(libinfo: LibraryInfo, data: st.DataObject):
+    data_dict = data.draw(data_dicts(**libinfo.data_dicts_kwargs), label="data_dict")
     df = libinfo.data_to_compliant(data_dict)
     out = df.column_names()
     assert isinstance(out, Iterable)
@@ -66,15 +86,23 @@ def test_column_names(libinfo: LibraryInfo, data_dict: DataDict):
         assert name == expected_name
 
 
-@given(data_dict=data_dicts())
-def test_get_column(libinfo: LibraryInfo, data_dict: DataDict):
+@given(data=st.data())
+def test_get_column(libinfo: LibraryInfo, data: st.DataObject):
+    data_dict = data.draw(
+        data_dicts(**{"allow_zero_cols": False, **libinfo.data_dicts_kwargs}),
+        label="data_dict",
+    )
     df = libinfo.data_to_compliant(data_dict)
     for i in range(len(data_dict)):
         df.get_column(i)
 
 
-@given(data_dict=data_dicts(), data=st.data())
-def test_select_columns(libinfo: LibraryInfo, data_dict: DataDict, data: st.DataObject):
+@given(data=st.data())
+def test_select_columns(libinfo: LibraryInfo, data: st.DataObject):
+    data_dict = data.draw(
+        data_dicts(**{"allow_zero_cols": False, **libinfo.data_dicts_kwargs}),
+        label="data_dict",
+    )
     df = libinfo.data_to_compliant(data_dict)
     indices = data.draw(
         st.lists(st.integers(0, len(data_dict) - 1), min_size=1, unique=True),
@@ -83,10 +111,12 @@ def test_select_columns(libinfo: LibraryInfo, data_dict: DataDict, data: st.Data
     df.select_columns(indices)
 
 
-@given(data_dict=data_dicts(), data=st.data())
-def test_select_columns_by_name(
-    libinfo: LibraryInfo, data_dict: DataDict, data: st.DataObject
-):
+@given(data=st.data())
+def test_select_columns_by_name(libinfo: LibraryInfo, data: st.DataObject):
+    data_dict = data.draw(
+        data_dicts(**{"allow_zero_cols": False, **libinfo.data_dicts_kwargs}),
+        label="data_dict",
+    )
     df = libinfo.data_to_compliant(data_dict)
     names = data.draw(
         st.lists(st.sampled_from(list(data_dict.keys())), min_size=1, unique=True),
@@ -95,8 +125,9 @@ def test_select_columns_by_name(
     df.select_columns_by_name(names)
 
 
-@given(data_dict=data_dicts(), data=st.data())
-def test_get_chunks(libinfo: LibraryInfo, data_dict: DataDict, data: st.DataObject):
+@given(data=st.data())
+def test_get_chunks(libinfo: LibraryInfo, data: st.DataObject):
+    data_dict = data.draw(data_dicts(**libinfo.data_dicts_kwargs), label="data_dict")
     df = libinfo.data_to_compliant(data_dict)
     _n_chunks = df.num_chunks()
     assert isinstance(_n_chunks, int)  # sanity check
@@ -108,4 +139,3 @@ def test_get_chunks(libinfo: LibraryInfo, data_dict: DataDict, data: st.DataObje
     else:
         args = [n_chunks]
     df.get_chunks(*args)
-    # result is implementation-dependant

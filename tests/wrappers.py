@@ -1,7 +1,9 @@
-from typing import Any, Callable, NamedTuple
+from itertools import combinations
+from typing import Any, Callable, Dict, NamedTuple
 
 import numpy as np
 import pytest
+from hypothesis import given
 from hypothesis import strategies as st
 
 from .api import DataFrame
@@ -21,13 +23,17 @@ class LibraryInfo(NamedTuple):
     get_compliant_dataframe: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
         df.__dataframe__()["dataframe"]
     )
+    data_dicts_kwargs: Dict[str, Any] = {}
 
     def data_to_compliant(self, data_dict: DataDict) -> DataFrame:
         return self.get_compliant_dataframe(self.data_to_toplevel(data_dict))
 
+    def data_dicts(self) -> st.SearchStrategy[DataDict]:
+        return data_dicts(**self.data_dicts_kwargs)
+
     @property
     def toplevel_strategy(self) -> st.SearchStrategy[TopLevelDataFrame]:
-        return data_dicts().map(self.data_to_toplevel)
+        return self.data_dicts().map(self.data_to_toplevel)
 
     @property
     def compliant_strategy(self) -> st.SearchStrategy[TopLevelDataFrame]:
@@ -87,6 +93,7 @@ else:
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
         get_compliant_dataframe=lambda df: df.__dataframe__(),
+        data_dicts_kwargs={"allow_zero_cols": False, "allow_zero_rows": False},
     )
     libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
 
@@ -132,3 +139,28 @@ else:
         get_compliant_dataframe=lambda df: df.__dataframe__(),
     )
     libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
+
+
+# ------------------------------------------------------------------------------
+# Meta tests
+
+
+@given(data=st.data())
+def test_data_dicts(libinfo: LibraryInfo, data: st.DataObject):
+    data.draw(libinfo.data_dicts())
+
+
+def test_compatible_data_dicts_kwargs():
+    libinfos = []
+    for param in libinfo_params:
+        if not any(m.name.startswith("skip") for m in param.marks):
+            libinfo = param.values[0]
+            libinfos.append(libinfo)
+    if len(libinfos) < 2:
+        pytest.skip()
+    for libinfo1, libinfo2 in combinations(libinfos, 2):
+        keys1 = libinfo1.data_dicts_kwargs.keys()
+        keys2 = libinfo2.data_dicts_kwargs.keys()
+        for k in set(keys1) | set(keys2):
+            if k in keys1 and k in keys2:
+                assert libinfo1.data_dicts_kwargs[k] == libinfo2.data_dicts_kwargs[k]
