@@ -7,8 +7,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from .api import DataFrame
-from .strategies import data_dicts
-from .typing import DataDict
+from .strategies import MockDataFrame, mock_dataframes
 
 __all__ = ["LibraryInfo", "libinfo_params"]
 
@@ -17,27 +16,25 @@ TopLevelDataFrame = Any
 
 class LibraryInfo(NamedTuple):
     name: str
-    data_to_toplevel: Callable[[DataDict], TopLevelDataFrame]
+    mock_to_toplevel: Callable[[MockDataFrame], TopLevelDataFrame]
     from_dataframe: Callable[[TopLevelDataFrame], DataFrame]
     frame_equal: Callable[[TopLevelDataFrame, DataFrame], bool]
-    get_compliant_dataframe: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
+    toplevel_to_compliant: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
         df.__dataframe__()["dataframe"]
     )
-    data_dicts_kwargs: Dict[str, Any] = {}
+    mock_dataframes_kwargs: Dict[str, Any] = {}
 
-    def data_to_compliant(self, data_dict: DataDict) -> DataFrame:
-        return self.get_compliant_dataframe(self.data_to_toplevel(data_dict))
+    def mock_to_compliant(self, mock_dataframe: MockDataFrame) -> DataFrame:
+        return self.toplevel_to_compliant(self.mock_to_toplevel(mock_dataframe))
 
-    def data_dicts(self) -> st.SearchStrategy[DataDict]:
-        return data_dicts(**self.data_dicts_kwargs)
+    def mock_dataframes(self) -> st.SearchStrategy[MockDataFrame]:
+        return mock_dataframes(**self.mock_dataframes_kwargs)
 
-    @property
-    def toplevel_strategy(self) -> st.SearchStrategy[TopLevelDataFrame]:
-        return self.data_dicts().map(self.data_to_toplevel)
+    def toplevel_dataframes(self) -> st.SearchStrategy[TopLevelDataFrame]:
+        return self.mock_dataframes().map(self.mock_to_toplevel)
 
-    @property
-    def compliant_strategy(self) -> st.SearchStrategy[TopLevelDataFrame]:
-        return self.toplevel_strategy.map(self.get_compliant_dataframe)
+    def compliant_dataframes(self) -> st.SearchStrategy[TopLevelDataFrame]:
+        return self.toplevel_dataframes().map(self.toplevel_to_compliant)
 
     def __repr__(self) -> str:
         return f"LibraryInfo(<{self.name}>)"
@@ -55,14 +52,34 @@ try:
 except ImportError as e:
     libinfo_params.append(pytest.param("pandas", marks=pytest.mark.skip(reason=e.msg)))
 else:
+
+    def pandas_mock_to_toplevel(mock_df: MockDataFrame) -> pd.DataFrame:
+        if len(mock_df) == 0:
+            return pd.DataFrame()
+        serieses = []
+        for name, (array, nominal_dtype) in mock_df.items():
+            if nominal_dtype == "str":
+                dtype = pd.StringDtype()
+            elif nominal_dtype == "datetime64":
+                dtype = "datetime64[ns]"
+            elif nominal_dtype == "category":
+                dtype = "category"
+            else:
+                dtype = None
+            s = pd.Series(array, name=name, dtype=dtype)
+            serieses.append(s)
+        df = pd.concat(serieses, axis=1)
+        return df
+
     libinfo = LibraryInfo(
         name="pandas",
-        data_to_toplevel=pd.DataFrame,
+        mock_to_toplevel=pandas_mock_to_toplevel,
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
-        get_compliant_dataframe=lambda df: df.__dataframe__(),
+        toplevel_to_compliant=lambda df: df.__dataframe__(),
     )
     libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
+
 
 # vaex
 # ----
@@ -89,11 +106,11 @@ else:
 
     libinfo = LibraryInfo(
         name="vaex",
-        data_to_toplevel=lambda data: vaex.from_items(*data.items()),
+        mock_to_toplevel=lambda data: vaex.from_items(*data.items()),
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
-        get_compliant_dataframe=lambda df: df.__dataframe__(),
-        data_dicts_kwargs={"allow_zero_cols": False, "allow_zero_rows": False},
+        toplevel_to_compliant=lambda df: df.__dataframe__(),
+        mock_dataframes_kwargs={"allow_zero_cols": False, "allow_zero_rows": False},
     )
     libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
 
@@ -114,10 +131,10 @@ else:
     Engine.put("ray")
     libinfo = LibraryInfo(
         name="modin",
-        data_to_toplevel=modin.pandas.DataFrame,
+        mock_to_toplevel=modin.pandas.DataFrame,
         from_dataframe=modin_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
-        get_compliant_dataframe=lambda df: df.__dataframe__(),
+        toplevel_to_compliant=lambda df: df.__dataframe__(),
     )
     libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
 
@@ -133,10 +150,10 @@ except ImportError as e:
 else:
     libinfo = LibraryInfo(
         name="cudf",
-        data_to_toplevel=cudf.DataFrame,
+        mock_to_toplevel=cudf.DataFrame,
         from_dataframe=cudf_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
-        get_compliant_dataframe=lambda df: df.__dataframe__(),
+        toplevel_to_compliant=lambda df: df.__dataframe__(),
     )
     libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
 
@@ -145,11 +162,17 @@ else:
 # Meta tests
 
 
+@pytest.mark.parametrize(
+    "func_name", ["mock_dataframes", "toplevel_dataframes", "compliant_dataframes"]
+)
 @given(data=st.data())
-def test_data_dicts(libinfo: LibraryInfo, data: st.DataObject):
-    data.draw(libinfo.data_dicts())
+def test_mock_dataframes(libinfo: LibraryInfo, func_name: str, data: st.DataObject):
+    func = getattr(libinfo, func_name)
+    strat = func()
+    data.draw(strat)
 
 
+# TODO
 def test_compatible_data_dicts_kwargs():
     libinfos = []
     for param in libinfo_params:
@@ -159,8 +182,11 @@ def test_compatible_data_dicts_kwargs():
     if len(libinfos) < 2:
         pytest.skip()
     for libinfo1, libinfo2 in combinations(libinfos, 2):
-        keys1 = libinfo1.data_dicts_kwargs.keys()
-        keys2 = libinfo2.data_dicts_kwargs.keys()
+        keys1 = libinfo1.mock_dataframes_kwargs.keys()
+        keys2 = libinfo2.mock_dataframes_kwargs.keys()
         for k in set(keys1) | set(keys2):
             if k in keys1 and k in keys2:
-                assert libinfo1.data_dicts_kwargs[k] == libinfo2.data_dicts_kwargs[k]
+                assert (
+                    libinfo1.mock_dataframes_kwargs[k]
+                    == libinfo2.mock_dataframes_kwargs[k]
+                )

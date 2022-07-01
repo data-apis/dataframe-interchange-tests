@@ -2,7 +2,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from tests.strategies import data_dicts
+from tests.strategies import mock_dataframes
 
 from .wrappers import LibraryInfo, libinfo_params
 
@@ -19,13 +19,16 @@ def test_from_dataframe_roundtrip(
     Round trip of dataframe interchange results in a dataframe identical to the
     original dataframe.
     """
-    data_dict = data.draw(
-        data_dicts(
-            **{**orig_libinfo.data_dicts_kwargs, **orig_libinfo.data_dicts_kwargs}
+    mock_df = data.draw(
+        mock_dataframes(
+            **{
+                **orig_libinfo.mock_dataframes_kwargs,
+                **dest_libinfo.mock_dataframes_kwargs,
+            }
         ),
-        label="data_dict",
+        label="mock_df",
     )
-    orig_df = orig_libinfo.data_to_toplevel(data_dict)
+    orig_df = orig_libinfo.mock_to_toplevel(mock_df)
     dest_df = dest_libinfo.from_dataframe(orig_df)
     roundtrip_df = orig_libinfo.from_dataframe(dest_df)
     assert orig_libinfo.frame_equal(roundtrip_df, orig_df), (
