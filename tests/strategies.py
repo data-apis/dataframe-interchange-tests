@@ -2,12 +2,13 @@ from collections.abc import Mapping
 from typing import Dict, List, Literal, NamedTuple
 
 import numpy as np
+from hypothesis import given
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as nps
 
 __all__ = ["MockDataFrame", "MockColumn", "mock_dataframes"]
 
-valid_nominal_dtypes: List[str] = ["bool", "str", "datetime64[ns]", "category"]
+valid_nominal_dtypes: List[str] = ["bool", "U8", "datetime64[ns]", "category"]
 for kind in ["int", "uint"]:
     for bitwidth in [8, 16, 32, 64]:
         valid_nominal_dtypes.append(f"{kind}{bitwidth}")
@@ -76,10 +77,19 @@ def mock_dataframes(
         nominal_dtype = draw(st.sampled_from(valid_nominal_dtypes))
         if nominal_dtype == "category":
             x_strat = nps.arrays(
-                dtype=str, shape=nrows, elements=st.from_regex("[A-F]", fullmatch=True)
+                dtype=np.int8, shape=nrows, elements=st.integers(0, 15)
             )
         else:
             x_strat = nps.arrays(dtype=nominal_dtype, shape=nrows)
         x = draw(x_strat)
         name_to_column[colname] = MockColumn(x, nominal_dtype)
     return MockDataFrame(name_to_column)
+
+
+# ------------------------------------------------------------------------------
+# Meta tests
+
+
+@given(mock_dataframes())
+def test_mock_dataframes(_):
+    pass

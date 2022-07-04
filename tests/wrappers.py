@@ -1,5 +1,5 @@
 from itertools import combinations
-from typing import Any, Callable, Dict, NamedTuple
+from typing import Any, Callable, Dict, List, NamedTuple, Tuple
 
 import numpy as np
 import pytest
@@ -54,14 +54,12 @@ except ImportError as e:
 else:
 
     def pandas_mock_to_toplevel(mock_df: MockDataFrame) -> pd.DataFrame:
-        if len(mock_df) == 0:
+        if mock_df.num_columns() == 0:
             return pd.DataFrame()
         serieses = []
         for name, (array, nominal_dtype) in mock_df.items():
             if nominal_dtype == "str":
                 dtype = pd.StringDtype()
-            elif nominal_dtype == "datetime64":
-                dtype = "datetime64[ns]"
             elif nominal_dtype == "category":
                 dtype = "category"
             else:
@@ -91,6 +89,23 @@ except ImportError as e:
     libinfo_params.append(pytest.param("vaex", marks=pytest.mark.skip(reason=e.msg)))
 else:
 
+    def vaex_mock_to_toplevel(mock_df: MockDataFrame) -> TopLevelDataFrame:
+        if mock_df.num_columns() == 0 or mock_df.num_rows() == 0:
+            return ValueError(f"{mock_df=} not supported by vaex")
+        items: List[Tuple[str, np.ndarray]] = []
+        for name, (array, _) in mock_df.items():
+            items.append((name, array))
+        df = vaex.from_items(*items)
+        for name, (array, nominal_dtype) in mock_df.items():
+            if nominal_dtype == "category":
+                if not np.issubdtype(array.dtype, np.integer):
+                    raise ValueError(
+                        f"Array with dtype {array.dtype} was given, "
+                        "but only integers can be marked as categorical in vaex."
+                    )
+                df = df.categorize(name)
+        return df
+
     def vaex_frame_equal(df1, df2) -> bool:
         same_shape = df1.shape == df2.shape
         if not same_shape:
@@ -106,7 +121,7 @@ else:
 
     libinfo = LibraryInfo(
         name="vaex",
-        mock_to_toplevel=lambda data: vaex.from_items(*data.items()),
+        mock_to_toplevel=vaex_mock_to_toplevel,
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
         toplevel_to_compliant=lambda df: df.__dataframe__(),
@@ -120,7 +135,7 @@ else:
 
 
 try:
-    import modin
+    import modin  # noqa: F401
     import ray
     from modin.config import Engine
     from modin.pandas.utils import from_dataframe as modin_from_dataframe
@@ -129,9 +144,28 @@ except ImportError as e:
 else:
     ray.init()
     Engine.put("ray")
+
+    from modin import pandas as mpd
+
+    def modin_mock_to_toplevel(mock_df: MockDataFrame) -> pd.DataFrame:
+        if mock_df.num_columns() == 0:
+            return mpd.DataFrame()
+        serieses = []
+        for name, (array, nominal_dtype) in mock_df.items():
+            if nominal_dtype == "str":
+                dtype = mpd.StringDtype()
+            elif nominal_dtype == "category":
+                dtype = "category"
+            else:
+                dtype = None
+            s = mpd.Series(array, name=name, dtype=dtype)
+            serieses.append(s)
+        df = mpd.concat(serieses, axis=1)
+        return df
+
     libinfo = LibraryInfo(
         name="modin",
-        mock_to_toplevel=modin.pandas.DataFrame,
+        mock_to_toplevel=modin_mock_to_toplevel,
         from_dataframe=modin_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
         toplevel_to_compliant=lambda df: df.__dataframe__(),
@@ -142,20 +176,21 @@ else:
 # cudf
 # ----
 
-try:
-    import cudf
-    from cudf.core.df_protocol import from_dataframe as cudf_from_dataframe
-except ImportError as e:
-    libinfo_params.append(pytest.param("cudf", marks=pytest.mark.skip(reason=e.msg)))
-else:
-    libinfo = LibraryInfo(
-        name="cudf",
-        mock_to_toplevel=cudf.DataFrame,
-        from_dataframe=cudf_from_dataframe,
-        frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
-        toplevel_to_compliant=lambda df: df.__dataframe__(),
-    )
-    libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
+# TODO
+# try:
+#     import cudf
+#     from cudf.core.df_protocol import from_dataframe as cudf_from_dataframe
+# except ImportError as e:
+#     libinfo_params.append(pytest.param("cudf", marks=pytest.mark.skip(reason=e.msg)))
+# else:
+#     libinfo = LibraryInfo(
+#         name="cudf",
+#         mock_to_toplevel=cudf.DataFrame,
+#         from_dataframe=cudf_from_dataframe,
+#         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
+#         toplevel_to_compliant=lambda df: df.__dataframe__(),
+#     )
+#     libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
 
 
 # ------------------------------------------------------------------------------
@@ -166,13 +201,12 @@ else:
     "func_name", ["mock_dataframes", "toplevel_dataframes", "compliant_dataframes"]
 )
 @given(data=st.data())
-def test_mock_dataframes(libinfo: LibraryInfo, func_name: str, data: st.DataObject):
+def test_strategy(libinfo: LibraryInfo, func_name: str, data: st.DataObject):
     func = getattr(libinfo, func_name)
     strat = func()
-    data.draw(strat)
+    data.draw(strat, label="example")
 
 
-# TODO
 def test_compatible_data_dicts_kwargs():
     libinfos = []
     for param in libinfo_params:
