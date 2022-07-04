@@ -138,15 +138,16 @@ else:
 try:
     import modin  # noqa: F401
     import ray
+
+    ray.init()
     from modin.config import Engine
+
+    Engine.put("ray")
+    from modin import pandas as mpd
     from modin.pandas.utils import from_dataframe as modin_from_dataframe
 except ImportError as e:
     libinfo_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
 else:
-    ray.init()
-    Engine.put("ray")
-
-    from modin import pandas as mpd
 
     def modin_mock_to_toplevel(mock_df: MockDataFrame) -> pd.DataFrame:
         if mock_df.num_columns() == 0:
