@@ -91,7 +91,7 @@ else:
 
     def vaex_mock_to_toplevel(mock_df: MockDataFrame) -> TopLevelDataFrame:
         if mock_df.num_columns() == 0 or mock_df.num_rows() == 0:
-            return ValueError(f"{mock_df=} not supported by vaex")
+            raise ValueError(f"{mock_df=} not supported by vaex")
         items: List[Tuple[str, np.ndarray]] = []
         for name, (array, _) in mock_df.items():
             items.append((name, array))
@@ -149,10 +149,12 @@ except ImportError as e:
     libinfo_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
 else:
 
-    def modin_mock_to_toplevel(mock_df: MockDataFrame) -> pd.DataFrame:
+    def modin_mock_to_toplevel(mock_df: MockDataFrame) -> mpd.DataFrame:
         if mock_df.num_columns() == 0:
             return mpd.DataFrame()
-        serieses = []
+        if mock_df.num_rows() == 0:
+            raise ValueError(f"{mock_df=} not supported by vaex")
+        serieses: List[mpd.Series] = []
         for name, (array, nominal_dtype) in mock_df.items():
             if nominal_dtype == "str":
                 dtype = mpd.StringDtype()
