@@ -22,7 +22,17 @@ class LibraryInfo(NamedTuple):
     toplevel_to_compliant: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
         df.__dataframe__()["dataframe"]
     )
-    mock_dataframes_kwargs: Dict[str, Any] = {}
+    supports_zero_cols: bool = True
+    supports_zero_rows: bool = True
+
+    @property
+    def mock_dataframes_kwargs(self) -> Dict[str, Any]:
+        kwargs = {}
+        if not self.supports_zero_cols:
+            kwargs["allow_zero_cols"] = False
+        if not self.supports_zero_rows:
+            kwargs["allow_zero_rows"] = False
+        return kwargs
 
     def mock_to_compliant(self, mock_dataframe: MockDataFrame) -> DataFrame:
         return self.toplevel_to_compliant(self.mock_to_toplevel(mock_dataframe))
@@ -126,7 +136,8 @@ else:
         frame_equal=vaex_frame_equal,
         toplevel_to_compliant=lambda df: df.__dataframe__(),
         # See https://github.com/vaexio/vaex/issues/2094
-        mock_dataframes_kwargs={"allow_zero_cols": False, "allow_zero_rows": False},
+        supports_zero_cols=False,
+        supports_zero_rows=False,
     )
     libinfo_params.append(pytest.param(vaex_libinfo, id=vaex_libinfo.name))
 
@@ -190,7 +201,7 @@ else:
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
         toplevel_to_compliant=lambda df: df.__dataframe__(),
         # See https://github.com/modin-project/modin/issues/4643
-        mock_dataframes_kwargs={"allow_zero_rows": False},
+        supports_zero_rows=False,
     )
     libinfo_params.append(pytest.param(modin_libinfo, id=modin_libinfo.name))
 
