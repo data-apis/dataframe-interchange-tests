@@ -55,7 +55,7 @@ class MockDataFrame(Mapping):
 
     def __repr__(self) -> str:
         cols_repr = ", ".join(
-            f"'{name}': {col.nominal_dtype}" for name, col in self.items()
+            f"'{name}': {col.nominal_dtype} = {col.array}" for name, col in self.items()
         )
         cols_repr = "{" + cols_repr + "}"
         return f"MockDataFrame({cols_repr})"

@@ -69,14 +69,14 @@ else:
         df = pd.concat(serieses, axis=1)
         return df
 
-    libinfo = LibraryInfo(
+    pandas_libinfo = LibraryInfo(
         name="pandas",
         mock_to_toplevel=pandas_mock_to_toplevel,
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
         toplevel_to_compliant=lambda df: df.__dataframe__(),
     )
-    libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
+    libinfo_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
 
 
 # vaex
@@ -119,15 +119,16 @@ else:
                 return False
         return True
 
-    libinfo = LibraryInfo(
+    vaex_libinfo = LibraryInfo(
         name="vaex",
         mock_to_toplevel=vaex_mock_to_toplevel,
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
         toplevel_to_compliant=lambda df: df.__dataframe__(),
+        # See https://github.com/vaexio/vaex/issues/2094
         mock_dataframes_kwargs={"allow_zero_cols": False, "allow_zero_rows": False},
     )
-    libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
+    libinfo_params.append(pytest.param(vaex_libinfo, id=vaex_libinfo.name))
 
 
 # modin
@@ -163,34 +164,19 @@ else:
         df = mpd.concat(serieses, axis=1)
         return df
 
-    libinfo = LibraryInfo(
+    modin_libinfo = LibraryInfo(
         name="modin",
         mock_to_toplevel=modin_mock_to_toplevel,
         from_dataframe=modin_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
         toplevel_to_compliant=lambda df: df.__dataframe__(),
+        # See https://github.com/modin-project/modin/issues/4643
+        mock_dataframes_kwargs={"allow_zero_rows": False},
     )
-    libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
+    libinfo_params.append(pytest.param(modin_libinfo, id=modin_libinfo.name))
 
 
-# cudf
-# ----
-
-# TODO
-# try:
-#     import cudf
-#     from cudf.core.df_protocol import from_dataframe as cudf_from_dataframe
-# except ImportError as e:
-#     libinfo_params.append(pytest.param("cudf", marks=pytest.mark.skip(reason=e.msg)))
-# else:
-#     libinfo = LibraryInfo(
-#         name="cudf",
-#         mock_to_toplevel=cudf.DataFrame,
-#         from_dataframe=cudf_from_dataframe,
-#         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
-#         toplevel_to_compliant=lambda df: df.__dataframe__(),
-#     )
-#     libinfo_params.append(pytest.param(libinfo, id=libinfo.name))
+# TODO: cudf
 
 
 # ------------------------------------------------------------------------------
@@ -207,14 +193,15 @@ def test_strategy(libinfo: LibraryInfo, func_name: str, data: st.DataObject):
     data.draw(strat, label="example")
 
 
+libinfos: List[LibraryInfo] = []
+for param in libinfo_params:
+    if not any(m.name.startswith("skip") for m in param.marks):
+        libinfo = param.values[0]
+        libinfos.append(libinfo)
+
+
+@pytest.mark.skipif(len(libinfos) < 2)
 def test_compatible_data_dicts_kwargs():
-    libinfos = []
-    for param in libinfo_params:
-        if not any(m.name.startswith("skip") for m in param.marks):
-            libinfo = param.values[0]
-            libinfos.append(libinfo)
-    if len(libinfos) < 2:
-        pytest.skip()
     for libinfo1, libinfo2 in combinations(libinfos, 2):
         keys1 = libinfo1.mock_dataframes_kwargs.keys()
         keys2 = libinfo2.mock_dataframes_kwargs.keys()
