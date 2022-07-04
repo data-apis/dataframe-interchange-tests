@@ -11,7 +11,7 @@ from .wrappers import LibraryInfo
 
 def test_library_supports_zero_cols(libinfo: LibraryInfo):
     if not libinfo.allow_zero_cols:
-        pytest.xfail("library specified to not support zero cols")
+        pytest.xfail("library doesn't support zero cols")
     mock_df = MockDataFrame({})
     df = libinfo.mock_to_toplevel(mock_df)
     # Just initialising a dataframe might not catch that a library doesn't
@@ -21,7 +21,7 @@ def test_library_supports_zero_cols(libinfo: LibraryInfo):
 
 def test_library_supports_zero_rows(libinfo: LibraryInfo):
     if not libinfo.allow_zero_rows:
-        pytest.xfail("library specified to not support zero rows")
+        pytest.xfail("library doesn't support zero rows")
     mock_df = MockDataFrame(
         {"foo_col": MockColumn(np.asarray([], dtype=np.int64), NominalDtypeEnum.INT64)}
     )
