@@ -140,10 +140,26 @@ try:
     import ray
 
     ray.init()
+
     from modin.config import Engine
 
     Engine.put("ray")
-    from modin import pandas as mpd
+
+    try:
+        from modin import pandas as mpd
+    except ImportError as orig_e:
+        # One issue modin has with pandas upstream is an outdated import of an
+        # exception class. We monkey-patch the class to the old path, and then
+        # try importing modin again.
+        try:
+            from pandas.core import base
+            from pandas.errors import DataError
+        except ImportError as e:
+            raise orig_e from e  # give up and raise original exception
+        else:
+            setattr(base, "DataError", DataError)
+        from modin import pandas as mpd
+
     from modin.pandas.utils import from_dataframe as modin_from_dataframe
 except ImportError as e:
     libinfo_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
