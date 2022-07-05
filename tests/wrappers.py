@@ -125,7 +125,15 @@ else:
         if not same_cols:
             return False
         for col in columns:
-            if not np.array_equal(df1[col].values, df2[col].values, equal_nan=True):
+            if df1[col].dtype == "string":
+                if df2[col].dtype != "string":
+                    return False
+                equal_nan = False  # not understood for string arrays
+            else:
+                equal_nan = True
+            if not np.array_equal(
+                df1[col].values, df2[col].values, equal_nan=equal_nan
+            ):
                 return False
         return True
 
@@ -140,6 +148,10 @@ else:
         supports_zero_rows=False,
     )
     libinfo_params.append(pytest.param(vaex_libinfo, id=vaex_libinfo.name))
+
+    def test_vaex_frame_equal():
+        df = vaex.from_items(("foo", np.asarray(["bar"], dtype=str)))
+        assert vaex_frame_equal(df, df)
 
 
 # modin
