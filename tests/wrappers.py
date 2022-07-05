@@ -148,29 +148,26 @@ else:
 
 try:
     import modin  # noqa: F401
+
+    # One issue modin has with pandas upstream is an outdated import of an
+    # exception class, so we try monkey-patching the class to the old path.
+    try:
+        from pandas.core import base
+        from pandas.errors import DataError
+    except ImportError:
+        pass
+    else:
+        setattr(base, "DataError", DataError)
+
     import ray
 
-    ray.init()
+    ray.init()  # TODO: somehow inject our monkey-patched pandas into ray's runtime
 
     from modin.config import Engine
 
     Engine.put("ray")
 
-    try:
-        from modin import pandas as mpd
-    except ImportError as orig_e:
-        # One issue modin has with pandas upstream is an outdated import of an
-        # exception class. We monkey-patch the class to the old path, and then
-        # try importing modin again.
-        try:
-            from pandas.core import base
-            from pandas.errors import DataError
-        except ImportError as e:
-            raise orig_e from e  # give up and raise original exception
-        else:
-            setattr(base, "DataError", DataError)
-        from modin import pandas as mpd
-
+    from modin import pandas as mpd
     from modin.pandas.utils import from_dataframe as modin_from_dataframe
 except ImportError as e:
     libinfo_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
@@ -180,7 +177,7 @@ else:
         if mock_df.num_columns() == 0:
             return mpd.DataFrame()
         if mock_df.num_rows() == 0:
-            raise ValueError(f"{mock_df=} not supported by vaex")
+            raise ValueError(f"{mock_df=} not supported by modin")
         serieses: List[mpd.Series] = []
         for name, (array, nominal_dtype) in mock_df.items():
             if nominal_dtype == "str":
