@@ -5,14 +5,15 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from .strategies import MockColumn, MockDataFrame, mock_dataframes
+from .strategies import MockColumn, MockDataFrame, NominalDtypeEnum, mock_dataframes
 from .wrappers import LibraryInfo
 
 
 def test_library_supports_zero_cols(libinfo: LibraryInfo):
     if not libinfo.supports_zero_cols:
         pytest.xfail("library specified to not support zero cols")
-    df = libinfo.mock_to_toplevel(MockDataFrame({}))
+    mock_df = MockDataFrame({})
+    df = libinfo.mock_to_toplevel(mock_df)
     # Just initialising a dataframe might not catch that a library doesn't
     # support zero-column dataframes - using a method like repr might!
     repr(df)
@@ -21,9 +22,10 @@ def test_library_supports_zero_cols(libinfo: LibraryInfo):
 def test_library_supports_zero_rows(libinfo: LibraryInfo):
     if not libinfo.supports_zero_rows:
         pytest.xfail("library specified to not support zero rows")
-    df = libinfo.mock_to_toplevel(
-        MockDataFrame({"foo_col": MockColumn(np.asarray([], dtype=np.int64), "int64")})
+    mock_df = MockDataFrame(
+        {"foo_col": MockColumn(np.asarray([], dtype=np.int64), NominalDtypeEnum.INT64)}
     )
+    df = libinfo.mock_to_toplevel(mock_df)
     # See above comment
     repr(df)
 

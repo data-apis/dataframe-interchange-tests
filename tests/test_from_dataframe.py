@@ -21,10 +21,15 @@ def test_from_dataframe_roundtrip(
     """
     mock_df = data.draw(
         mock_dataframes(
-            **{
-                **orig_libinfo.mock_dataframes_kwargs,
-                **dest_libinfo.mock_dataframes_kwargs,
-            }
+            invalid_dtypes=list(
+                set(orig_libinfo.excludes_dtypes) | set(dest_libinfo.excludes_dtypes)
+            ),
+            allow_zero_cols=(
+                orig_libinfo.supports_zero_cols and dest_libinfo.supports_zero_cols
+            ),
+            allow_zero_rows=(
+                orig_libinfo.supports_zero_cols and dest_libinfo.supports_zero_cols
+            ),
         ),
         label="mock_df",
     )

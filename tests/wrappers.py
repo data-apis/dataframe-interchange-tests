@@ -1,4 +1,3 @@
-from itertools import combinations
 from typing import Any, Callable, Dict, List, NamedTuple, Tuple
 
 import numpy as np
@@ -7,9 +6,9 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from .api import DataFrame
-from .strategies import MockDataFrame, mock_dataframes
+from .strategies import MockDataFrame, NominalDtypeEnum, mock_dataframes
 
-__all__ = ["LibraryInfo", "libinfo_params"]
+__all__ = ["libinfos", "libinfo_params", "LibraryInfo"]
 
 TopLevelDataFrame = Any
 
@@ -22,8 +21,12 @@ class LibraryInfo(NamedTuple):
     toplevel_to_compliant: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
         df.__dataframe__()["dataframe"]
     )
+    excludes_dtypes: List[NominalDtypeEnum] = []
     supports_zero_cols: bool = True
     supports_zero_rows: bool = True
+
+    def mock_to_compliant(self, mock_dataframe: MockDataFrame) -> DataFrame:
+        return self.toplevel_to_compliant(self.mock_to_toplevel(mock_dataframe))
 
     @property
     def mock_dataframes_kwargs(self) -> Dict[str, Any]:
@@ -32,10 +35,9 @@ class LibraryInfo(NamedTuple):
             kwargs["allow_zero_cols"] = False
         if not self.supports_zero_rows:
             kwargs["allow_zero_rows"] = False
+        if len(self.excludes_dtypes) != 0:
+            kwargs["invalid_dtypes"] = self.excludes_dtypes
         return kwargs
-
-    def mock_to_compliant(self, mock_dataframe: MockDataFrame) -> DataFrame:
-        return self.toplevel_to_compliant(self.mock_to_toplevel(mock_dataframe))
 
     def mock_dataframes(self) -> st.SearchStrategy[MockDataFrame]:
         return mock_dataframes(**self.mock_dataframes_kwargs)
@@ -68,12 +70,10 @@ else:
             return pd.DataFrame()
         serieses = []
         for name, (array, nominal_dtype) in mock_df.items():
-            if nominal_dtype == "str":
+            if nominal_dtype == NominalDtypeEnum.UTF8:
                 dtype = pd.StringDtype()
-            elif nominal_dtype == "category":
-                dtype = "category"
             else:
-                dtype = None
+                dtype = nominal_dtype.value
             s = pd.Series(array, name=name, dtype=dtype)
             serieses.append(s)
         df = pd.concat(serieses, axis=1)
@@ -85,6 +85,7 @@ else:
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
         toplevel_to_compliant=lambda df: df.__dataframe__(),
+        excludes_dtypes=[NominalDtypeEnum.DATETIME64NS],
     )
     libinfo_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
 
@@ -107,7 +108,7 @@ else:
             items.append((name, array))
         df = vaex.from_items(*items)
         for name, (array, nominal_dtype) in mock_df.items():
-            if nominal_dtype == "category":
+            if nominal_dtype == NominalDtypeEnum.CATEGORY:
                 if not np.issubdtype(array.dtype, np.integer):
                     raise ValueError(
                         f"Array with dtype {array.dtype} was given, "
@@ -128,7 +129,7 @@ else:
             if df1[col].dtype == "string":
                 if df2[col].dtype != "string":
                     return False
-                equal_nan = False  # not understood for string arrays
+                equal_nan = False  # equal_nan=True not understood for string arrays
             else:
                 equal_nan = True
             if not np.array_equal(
@@ -143,6 +144,7 @@ else:
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
         toplevel_to_compliant=lambda df: df.__dataframe__(),
+        excludes_dtypes=[NominalDtypeEnum.DATETIME64NS],
         # See https://github.com/vaexio/vaex/issues/2094
         supports_zero_cols=False,
         supports_zero_rows=False,
@@ -192,12 +194,10 @@ else:
             raise ValueError(f"{mock_df=} not supported by modin")
         serieses: List[mpd.Series] = []
         for name, (array, nominal_dtype) in mock_df.items():
-            if nominal_dtype == "str":
+            if nominal_dtype == NominalDtypeEnum.UTF8:
                 dtype = mpd.StringDtype()
-            elif nominal_dtype == "category":
-                dtype = "category"
             else:
-                dtype = None
+                dtype = nominal_dtype.value
             s = mpd.Series(array, name=name, dtype=dtype)
             serieses.append(s)
         df = mpd.concat(serieses, axis=1)
@@ -209,6 +209,7 @@ else:
         from_dataframe=modin_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
         toplevel_to_compliant=lambda df: df.__dataframe__(),
+        excludes_dtypes=[NominalDtypeEnum.DATETIME64NS],
         # See https://github.com/modin-project/modin/issues/4643
         supports_zero_rows=False,
     )
@@ -216,6 +217,13 @@ else:
 
 
 # TODO: cudf
+
+
+libinfos: Dict[str, LibraryInfo] = {}
+for param in libinfo_params:
+    if not any(m.name.startswith("skip") for m in param.marks):
+        libinfo = param.values[0]
+        libinfos[libinfo.name] = libinfo
 
 
 # ------------------------------------------------------------------------------
@@ -230,23 +238,3 @@ def test_strategy(libinfo: LibraryInfo, func_name: str, data: st.DataObject):
     func = getattr(libinfo, func_name)
     strat = func()
     data.draw(strat, label="example")
-
-
-libinfos: List[LibraryInfo] = []
-for param in libinfo_params:
-    if not any(m.name.startswith("skip") for m in param.marks):
-        libinfo = param.values[0]
-        libinfos.append(libinfo)
-
-
-@pytest.mark.skipif(len(libinfos) < 2)
-def test_compatible_data_dicts_kwargs():
-    for libinfo1, libinfo2 in combinations(libinfos, 2):
-        keys1 = libinfo1.mock_dataframes_kwargs.keys()
-        keys2 = libinfo2.mock_dataframes_kwargs.keys()
-        for k in set(keys1) | set(keys2):
-            if k in keys1 and k in keys2:
-                assert (
-                    libinfo1.mock_dataframes_kwargs[k]
-                    == libinfo2.mock_dataframes_kwargs[k]
-                )

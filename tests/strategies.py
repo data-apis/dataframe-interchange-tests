@@ -1,26 +1,37 @@
 from collections.abc import Mapping
-from typing import Dict, List, Literal, NamedTuple
+from enum import Enum
+from typing import Dict, List, NamedTuple
 
 import numpy as np
 from hypothesis import given
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as nps
 
-__all__ = ["MockDataFrame", "MockColumn", "mock_dataframes"]
+__all__ = ["mock_dataframes", "MockDataFrame", "MockColumn", "NominalDtypeEnum"]
 
-valid_nominal_dtypes: List[str] = ["bool", "U8", "datetime64[ns]", "category"]
+
+nominal_numerics: List[str] = []
 for kind in ["int", "uint"]:
     for bitwidth in [8, 16, 32, 64]:
-        valid_nominal_dtypes.append(f"{kind}{bitwidth}")
+        nominal_numerics.append(f"{kind}{bitwidth}")
 for bitwidth in [32, 64]:
-    valid_nominal_dtypes.append(f"float{bitwidth}")
+    nominal_numerics.append(f"float{bitwidth}")
 
-NominalDtype = Literal[tuple(valid_nominal_dtypes)]  # type: ignore
+NominalDtypeEnum = Enum(
+    "NominalDtypeEnum",
+    {
+        **{name.upper(): name for name in nominal_numerics},
+        "BOOL": "bool",
+        "UTF8": "U8",
+        "DATETIME64NS": "datetime64[ns]",
+        "CATEGORY": "category",
+    },
+)
 
 
 class MockColumn(NamedTuple):
     array: np.ndarray
-    nominal_dtype: NominalDtype
+    nominal_dtype: NominalDtypeEnum
 
 
 class MockDataFrame(Mapping):
@@ -63,7 +74,11 @@ class MockDataFrame(Mapping):
 
 @st.composite
 def mock_dataframes(
-    draw, *, allow_zero_cols: bool = True, allow_zero_rows: bool = True
+    draw,
+    *,
+    invalid_dtypes: List[NominalDtypeEnum] = [],
+    allow_zero_cols: bool = True,
+    allow_zero_rows: bool = True,
 ) -> MockDataFrame:
     min_ncols = 0 if allow_zero_cols else 1
     colnames_strat = st.from_regex("[a-z]+", fullmatch=True)  # TODO: more valid names
@@ -73,15 +88,17 @@ def mock_dataframes(
     min_nrows = 0 if allow_zero_rows else 1
     nrows = draw(st.integers(min_nrows, 5))
     name_to_column = {}
+    valid_dtypes = [e for e in NominalDtypeEnum if e not in invalid_dtypes]
     for colname in colnames:
-        nominal_dtype = draw(st.sampled_from(valid_nominal_dtypes))
-        if nominal_dtype == "category":
+        nominal_dtype = draw(st.sampled_from(valid_dtypes))
+        if nominal_dtype == NominalDtypeEnum.CATEGORY:
             x_strat = nps.arrays(
                 dtype=np.int8, shape=nrows, elements=st.integers(0, 15)
             )
         else:
-            x_strat = nps.arrays(dtype=nominal_dtype, shape=nrows)
+            x_strat = nps.arrays(dtype=nominal_dtype.value, shape=nrows)
         x = draw(x_strat)
+        assert not isinstance(nominal_dtype, str)
         name_to_column[colname] = MockColumn(x, nominal_dtype)
     return MockDataFrame(name_to_column)
 
