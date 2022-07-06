@@ -172,7 +172,13 @@ try:
 
     import ray
 
-    ray.init()  # TODO: somehow inject our monkey-patched pandas into ray's runtime
+    ray.init(num_cpus=1, num_gpus=0, local_mode=True)
+
+    # Make sure to shutdown ray after we're done with it
+    @pytest.fixture(scope="session")
+    def ray_teardown():
+        yield
+        ray.shutdown()
 
     from modin.config import Engine
 

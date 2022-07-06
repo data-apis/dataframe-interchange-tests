@@ -20,7 +20,9 @@ ci_failing_ids = [
     # dataframe objects return the interchange dataframe, not a dict
     "test_dataframe_object.py::test_toplevel_dunder_dataframe[pandas]",
     "test_dataframe_object.py::test_toplevel_dunder_dataframe[vaex]",
+    "test_dataframe_object.py::test_toplevel_dunder_dataframe[modin]",
     "test_dataframe_object.py::test_dunder_dataframe[pandas]",
+    "test_dataframe_object.py::test_dunder_dataframe[modin]",
     # vaex's interchange dataframe doesn't have __dataframe__()
     "test_dataframe_object.py::test_dunder_dataframe[vaex]",
     "test_signatures.py::test_dataframe_method[vaex-__dataframe__]",
@@ -29,6 +31,12 @@ ci_failing_ids = [
     # https://github.com/vaexio/vaex/issues/2113
     "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
+    # TODO: investigate and comment relevant issues
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-modin]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-modin]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-pandas]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-vaex]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-modin]",
 ]
 
 
@@ -36,4 +44,4 @@ def pytest_collection_modifyitems(config, items):
     if config.getoption("--ci-xfail"):
         for item in items:
             if any(id_ in item.nodeid for id_ in ci_failing_ids):
-                item.add_marker(pytest.mark.xfail(reason="disabled via --ci-xfail"))
+                item.add_marker(pytest.mark.xfail(reason="--ci-xfail"))

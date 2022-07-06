@@ -17,7 +17,7 @@ jobs:
         pip install -r requirements.txt
     - name: Install dataframe libraries
       run: |
-        pip install vaex
+        pip install vaex modin[ray]
         pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple pandas --ignore-installed --no-deps
     - name: Run tests
       run: |
