@@ -21,14 +21,14 @@ def test_from_dataframe_roundtrip(
     """
     mock_df = data.draw(
         mock_dataframes(
-            invalid_dtypes=list(
-                set(orig_libinfo.excludes_dtypes) | set(dest_libinfo.excludes_dtypes)
+            exclude_dtypes=list(
+                set(orig_libinfo.exclude_dtypes) | set(dest_libinfo.exclude_dtypes)
             ),
             allow_zero_cols=(
-                orig_libinfo.supports_zero_cols and dest_libinfo.supports_zero_cols
+                orig_libinfo.allow_zero_cols and dest_libinfo.allow_zero_cols
             ),
             allow_zero_rows=(
-                orig_libinfo.supports_zero_cols and dest_libinfo.supports_zero_cols
+                orig_libinfo.allow_zero_rows and dest_libinfo.allow_zero_rows
             ),
         ),
         label="mock_df",

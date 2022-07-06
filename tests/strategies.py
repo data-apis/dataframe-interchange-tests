@@ -76,7 +76,7 @@ class MockDataFrame(Mapping):
 def mock_dataframes(
     draw,
     *,
-    invalid_dtypes: List[NominalDtypeEnum] = [],
+    exclude_dtypes: List[NominalDtypeEnum] = [],
     allow_zero_cols: bool = True,
     allow_zero_rows: bool = True,
 ) -> MockDataFrame:
@@ -88,7 +88,7 @@ def mock_dataframes(
     min_nrows = 0 if allow_zero_rows else 1
     nrows = draw(st.integers(min_nrows, 5))
     name_to_column = {}
-    valid_dtypes = [e for e in NominalDtypeEnum if e not in invalid_dtypes]
+    valid_dtypes = [e for e in NominalDtypeEnum if e not in exclude_dtypes]
     for colname in colnames:
         nominal_dtype = draw(st.sampled_from(valid_dtypes))
         if nominal_dtype == NominalDtypeEnum.CATEGORY:

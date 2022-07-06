@@ -10,7 +10,7 @@ from .wrappers import LibraryInfo
 
 
 def test_library_supports_zero_cols(libinfo: LibraryInfo):
-    if not libinfo.supports_zero_cols:
+    if not libinfo.allow_zero_cols:
         pytest.xfail("library specified to not support zero cols")
     mock_df = MockDataFrame({})
     df = libinfo.mock_to_toplevel(mock_df)
@@ -20,7 +20,7 @@ def test_library_supports_zero_cols(libinfo: LibraryInfo):
 
 
 def test_library_supports_zero_rows(libinfo: LibraryInfo):
-    if not libinfo.supports_zero_rows:
+    if not libinfo.allow_zero_rows:
         pytest.xfail("library specified to not support zero rows")
     mock_df = MockDataFrame(
         {"foo_col": MockColumn(np.asarray([], dtype=np.int64), NominalDtypeEnum.INT64)}
@@ -53,9 +53,7 @@ def test_dunder_dataframe(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_num_columns(libinfo: LibraryInfo, data: st.DataObject):
-    mock_df = data.draw(
-        mock_dataframes(**libinfo.mock_dataframes_kwargs), label="mock_df"
-    )
+    mock_df = data.draw(libinfo.mock_dataframes(), label="mock_df")
     df = libinfo.mock_to_compliant(mock_df)
     out = df.num_columns()
     assert isinstance(out, int)
@@ -65,7 +63,7 @@ def test_num_columns(libinfo: LibraryInfo, data: st.DataObject):
 @given(data=st.data())
 def test_num_rows(libinfo: LibraryInfo, data: st.DataObject):
     mock_df = data.draw(
-        mock_dataframes(**{"allow_zero_cols": False, **libinfo.mock_dataframes_kwargs}),
+        mock_dataframes(**{**libinfo.mock_dataframes_kwargs, "allow_zero_cols": False}),
         label="mock_df",
     )
     df = libinfo.mock_to_compliant(mock_df)
@@ -77,9 +75,7 @@ def test_num_rows(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_num_chunks(libinfo: LibraryInfo, data: st.DataObject):
-    mock_df = data.draw(
-        mock_dataframes(**libinfo.mock_dataframes_kwargs), label="mock_df"
-    )
+    mock_df = data.draw(libinfo.mock_dataframes(), label="mock_df")
     df = libinfo.mock_to_compliant(mock_df)
     out = df.num_chunks()
     assert isinstance(out, int)
@@ -88,9 +84,7 @@ def test_num_chunks(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_column_names(libinfo: LibraryInfo, data: st.DataObject):
-    mock_df = data.draw(
-        mock_dataframes(**libinfo.mock_dataframes_kwargs), label="mock_df"
-    )
+    mock_df = data.draw(libinfo.mock_dataframes(), label="mock_df")
     df = libinfo.mock_to_compliant(mock_df)
     out = df.column_names()
     assert isinstance(out, Iterable)
@@ -103,7 +97,7 @@ def test_column_names(libinfo: LibraryInfo, data: st.DataObject):
 @given(data=st.data())
 def test_get_column(libinfo: LibraryInfo, data: st.DataObject):
     mock_df = data.draw(
-        mock_dataframes(**{"allow_zero_cols": False, **libinfo.mock_dataframes_kwargs}),
+        mock_dataframes(**{**libinfo.mock_dataframes_kwargs, "allow_zero_cols": False}),
         label="mock_df",
     )
     df = libinfo.mock_to_compliant(mock_df)
@@ -114,7 +108,7 @@ def test_get_column(libinfo: LibraryInfo, data: st.DataObject):
 @given(data=st.data())
 def test_select_columns(libinfo: LibraryInfo, data: st.DataObject):
     mock_df = data.draw(
-        mock_dataframes(**{"allow_zero_cols": False, **libinfo.mock_dataframes_kwargs}),
+        mock_dataframes(**{**libinfo.mock_dataframes_kwargs, "allow_zero_cols": False}),
         label="mock_df",
     )
     df = libinfo.mock_to_compliant(mock_df)
@@ -128,7 +122,7 @@ def test_select_columns(libinfo: LibraryInfo, data: st.DataObject):
 @given(data=st.data())
 def test_select_columns_by_name(libinfo: LibraryInfo, data: st.DataObject):
     mock_df = data.draw(
-        mock_dataframes(**{"allow_zero_cols": False, **libinfo.mock_dataframes_kwargs}),
+        mock_dataframes(**{**libinfo.mock_dataframes_kwargs, "allow_zero_cols": False}),
         label="mock_df",
     )
     df = libinfo.mock_to_compliant(mock_df)
@@ -141,16 +135,13 @@ def test_select_columns_by_name(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_get_chunks(libinfo: LibraryInfo, data: st.DataObject):
-    mock_df = data.draw(
-        mock_dataframes(**libinfo.mock_dataframes_kwargs), label="mock_df"
-    )
-    df = libinfo.mock_to_compliant(mock_df)
+    df = data.draw(libinfo.compliant_dataframes(), label="df")
     _n_chunks = df.num_chunks()
     assert isinstance(_n_chunks, int)  # sanity check
     n_chunks = data.draw(
         st.none() | st.integers(1, 2).map(lambda n: n * _n_chunks), label="n_chunks"
     )
-    if n_chunks is None and data.draw(st.booleans()):
+    if n_chunks is None and not data.draw(st.booleans(), label="pass n_chunks"):
         args = []
     else:
         args = [n_chunks]

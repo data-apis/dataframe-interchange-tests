@@ -21,23 +21,20 @@ class LibraryInfo(NamedTuple):
     toplevel_to_compliant: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
         df.__dataframe__()["dataframe"]
     )
-    excludes_dtypes: List[NominalDtypeEnum] = []
-    supports_zero_cols: bool = True
-    supports_zero_rows: bool = True
+    exclude_dtypes: List[NominalDtypeEnum] = []
+    allow_zero_cols: bool = True
+    allow_zero_rows: bool = True
 
     def mock_to_compliant(self, mock_dataframe: MockDataFrame) -> DataFrame:
         return self.toplevel_to_compliant(self.mock_to_toplevel(mock_dataframe))
 
     @property
     def mock_dataframes_kwargs(self) -> Dict[str, Any]:
-        kwargs = {}
-        if not self.supports_zero_cols:
-            kwargs["allow_zero_cols"] = False
-        if not self.supports_zero_rows:
-            kwargs["allow_zero_rows"] = False
-        if len(self.excludes_dtypes) != 0:
-            kwargs["invalid_dtypes"] = self.excludes_dtypes
-        return kwargs
+        return {
+            "exclude_dtypes": self.exclude_dtypes,
+            "allow_zero_cols": self.allow_zero_cols,
+            "allow_zero_rows": self.allow_zero_rows,
+        }
 
     def mock_dataframes(self) -> st.SearchStrategy[MockDataFrame]:
         return mock_dataframes(**self.mock_dataframes_kwargs)
@@ -85,7 +82,7 @@ else:
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
         toplevel_to_compliant=lambda df: df.__dataframe__(),
-        excludes_dtypes=[NominalDtypeEnum.DATETIME64NS],
+        exclude_dtypes=[NominalDtypeEnum.DATETIME64NS],
     )
     libinfo_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
 
@@ -144,10 +141,10 @@ else:
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
         toplevel_to_compliant=lambda df: df.__dataframe__(),
-        excludes_dtypes=[NominalDtypeEnum.DATETIME64NS],
+        exclude_dtypes=[NominalDtypeEnum.DATETIME64NS],
         # See https://github.com/vaexio/vaex/issues/2094
-        supports_zero_cols=False,
-        supports_zero_rows=False,
+        allow_zero_cols=False,
+        allow_zero_rows=False,
     )
     libinfo_params.append(pytest.param(vaex_libinfo, id=vaex_libinfo.name))
 
@@ -209,9 +206,9 @@ else:
         from_dataframe=modin_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
         toplevel_to_compliant=lambda df: df.__dataframe__(),
-        excludes_dtypes=[NominalDtypeEnum.DATETIME64NS],
+        exclude_dtypes=[NominalDtypeEnum.DATETIME64NS],
         # See https://github.com/modin-project/modin/issues/4643
-        supports_zero_rows=False,
+        allow_zero_rows=False,
     )
     libinfo_params.append(pytest.param(modin_libinfo, id=modin_libinfo.name))
 
