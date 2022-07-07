@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from enum import Enum
-from typing import Dict, List, NamedTuple
+from typing import Collection, Dict, List, NamedTuple
 
 import numpy as np
 from hypothesis import given
@@ -75,7 +75,7 @@ class MockDataFrame(Mapping):
 def mock_dataframes(
     draw,
     *,
-    exclude_dtypes: List[NominalDtypeEnum] = [],
+    exclude_dtypes: Collection[NominalDtypeEnum] = [],
     allow_zero_cols: bool = True,
     allow_zero_rows: bool = True,
 ) -> MockDataFrame:
