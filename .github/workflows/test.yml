@@ -21,4 +21,4 @@ jobs:
         pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple pandas --ignore-installed --no-deps
     - name: Run tests
       run: |
-        pytest tests/ -v --ci-xfail
+        pytest tests/ -v --ci

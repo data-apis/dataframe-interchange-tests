@@ -15,9 +15,9 @@ def pytest_generate_tests(metafunc):
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--ci-xfail",
+        "--ci",
         action="store_true",
-        help="xfail relevant tests for ../.github/workflows/test.yml",
+        help="xfail and skip relevant tests for ../.github/workflows/test.yml",
     )
 
 
@@ -34,14 +34,15 @@ ci_failing_ids = [
     # https://github.com/vaexio/vaex/issues/2083
     # https://github.com/vaexio/vaex/issues/2093
     # https://github.com/vaexio/vaex/issues/2113
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-vaex]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
 ]
 
 
 def pytest_collection_modifyitems(config, items):
-    if config.getoption("--ci-xfail"):
+    if config.getoption("--ci"):
         for item in items:
-            if any(id_ in item.nodeid for id_ in ci_failing_ids):
-                item.add_marker(pytest.mark.xfail(reason="--ci-xfail"))
+            if "test_from_dataframe" in item.nodeid and "modin" in item.nodeid:
+                item.add_marker(pytest.mark.skip("flaky"))
+            elif any(id_ in item.nodeid for id_ in ci_failing_ids):
+                item.add_marker(pytest.mark.xfail())
