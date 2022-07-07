@@ -172,7 +172,8 @@ try:
 
     import ray
 
-    ray.init()  # TODO: somehow inject our monkey-patched pandas into ray's runtime
+    # Without local_mode=True, ray does not use our monkey-patched pandas
+    ray.init(local_mode=True)
 
     from modin.config import Engine
 
