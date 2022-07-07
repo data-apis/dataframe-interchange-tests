@@ -119,8 +119,7 @@ else:
         if not same_shape:
             return False
         columns = df1.get_column_names()
-        same_cols = columns == df2.get_column_names()
-        if not same_cols:
+        if not columns == df2.get_column_names():
             return False
         for col in columns:
             if df1[col].dtype == "string":
@@ -142,15 +141,11 @@ else:
         frame_equal=vaex_frame_equal,
         toplevel_to_compliant=lambda df: df.__dataframe__(),
         exclude_dtypes=[NominalDtypeEnum.DATETIME64NS],
-        # See https://github.com/vaexio/vaex/issues/2094
+        # https://github.com/vaexio/vaex/issues/2094
         allow_zero_cols=False,
         allow_zero_rows=False,
     )
     libinfo_params.append(pytest.param(vaex_libinfo, id=vaex_libinfo.name))
-
-    def test_vaex_frame_equal():
-        df = vaex.from_items(("foo", np.asarray(["bar"], dtype=str)))
-        assert vaex_frame_equal(df, df)
 
 
 # modin
@@ -184,6 +179,7 @@ try:
 except ImportError as e:
     libinfo_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
 else:
+    # TODO: deal with https://github.com/ray-project/ray/issues/21424
 
     def modin_mock_to_toplevel(mock_df: MockDataFrame) -> mpd.DataFrame:
         if mock_df.num_columns() == 0:
@@ -201,18 +197,41 @@ else:
         df = mpd.concat(serieses, axis=1)
         return df
 
+    def modin_frame_equal(df1: mpd.DataFrame, df2: mpd.DataFrame) -> bool:
+        # Note equals() does not treat NaNs as equal, unlike pandas
+        # See https://github.com/modin-project/modin/issues/4653
+        if df1.shape != df2.shape:
+            return False
+        columns = df1.columns
+        if not columns.equals(df2.columns):
+            return False
+        for col in columns:
+            s1 = df1[col]
+            s2 = df2[col]
+            null_mask = s1.isnull()
+            if not null_mask.equals(s2.isnull()):
+                return False
+            if not s1.loc[~null_mask].equals(s2.loc[~null_mask]):
+                return False
+        return True
+
     modin_libinfo = LibraryInfo(
         name="modin",
         mock_to_toplevel=modin_mock_to_toplevel,
         from_dataframe=modin_from_dataframe,
-        frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
+        frame_equal=modin_frame_equal,
         toplevel_to_compliant=lambda df: df.__dataframe__(),
-        exclude_dtypes=[NominalDtypeEnum.DATETIME64NS],
-        # See https://github.com/modin-project/modin/issues/4643
+        # https://github.com/modin-project/modin/issues/4654
+        # https://github.com/modin-project/modin/issues/4652
+        exclude_dtypes=[
+            NominalDtypeEnum.UTF8,
+            NominalDtypeEnum.DATETIME64NS,
+            NominalDtypeEnum.CATEGORY,
+        ],
+        # https://github.com/modin-project/modin/issues/4643
         allow_zero_rows=False,
     )
     libinfo_params.append(pytest.param(modin_libinfo, id=modin_libinfo.name))
-
 
 # TODO: cudf
 
@@ -236,3 +255,9 @@ def test_strategy(libinfo: LibraryInfo, func_name: str, data: st.DataObject):
     func = getattr(libinfo, func_name)
     strat = func()
     data.draw(strat, label="example")
+
+
+@given(data=st.data())
+def test_frame_equal(libinfo: LibraryInfo, data: st.DataObject):
+    df = data.draw(libinfo.toplevel_dataframes(), label="df")
+    assert libinfo.frame_equal(df, df)

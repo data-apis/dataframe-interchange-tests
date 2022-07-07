@@ -20,8 +20,8 @@ for bitwidth in [32, 64]:
 NominalDtypeEnum = Enum(
     "NominalDtypeEnum",
     {
-        **{name.upper(): name for name in nominal_numerics},
         "BOOL": "bool",
+        **{name.upper(): name for name in nominal_numerics},
         "UTF8": "U8",
         "DATETIME64NS": "datetime64[ns]",
         "CATEGORY": "category",

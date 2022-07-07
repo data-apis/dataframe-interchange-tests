@@ -1,6 +1,11 @@
 import pytest
+from hypothesis import settings
 
 from .wrappers import libinfo_params
+
+# TODO: apply deadline=None only to modin test cases
+settings.register_profile("no_deadline", deadline=None)
+settings.load_profile("no_deadline")
 
 
 def pytest_generate_tests(metafunc):
@@ -29,14 +34,9 @@ ci_failing_ids = [
     # https://github.com/vaexio/vaex/issues/2083
     # https://github.com/vaexio/vaex/issues/2093
     # https://github.com/vaexio/vaex/issues/2113
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
-    # TODO: investigate and comment relevant issues
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-modin]",
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-modin]",
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-pandas]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-vaex]",
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-modin]",
 ]
 
 
