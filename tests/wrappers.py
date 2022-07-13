@@ -1,3 +1,5 @@
+import re
+from copy import copy
 from typing import Any, Callable, Dict, List, NamedTuple, Tuple
 
 import numpy as np
@@ -179,7 +181,6 @@ try:
 except ImportError as e:
     libinfo_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
 else:
-    # TODO: deal with https://github.com/ray-project/ray/issues/21424
 
     def modin_mock_to_toplevel(mock_df: MockDataFrame) -> mpd.DataFrame:
         if mock_df.num_columns() == 0:
@@ -233,7 +234,68 @@ else:
     )
     libinfo_params.append(pytest.param(modin_libinfo, id=modin_libinfo.name))
 
-# TODO: cudf
+try:
+    # cudf has a few issues with upstream pandas that we "fix" with a few hacks
+    try:
+        import pandas
+        import pyarrow
+        from pandas._libs.tslibs.parsing import guess_datetime_format
+        from pandas.core.tools import datetimes
+        from pyarrow.lib import ArrowKeyError
+    except ImportError:
+        pass
+    else:
+        old_register_extension_type = copy(pyarrow.register_extension_type)
+        r_existing_ext_type_msg = re.compile(
+            "A type extension with name pandas.[a-z_]+ already defined"
+        )
+
+        def register_extension_type(*a, **kw):
+            try:
+                old_register_extension_type(*a, **kw)
+            except ArrowKeyError as e:
+                if r_existing_ext_type_msg.fullmatch(str(e)):
+                    pass
+                else:
+                    raise e
+
+        setattr(pyarrow, "register_extension_type", register_extension_type)
+        setattr(datetimes, "_guess_datetime_format", guess_datetime_format)
+        setattr(pandas, "__version__", "1.4.3")
+
+    import cudf
+    from cudf.core.df_protocol import from_dataframe as cudf_from_dataframe
+except ImportError as e:
+    libinfo_params.append(pytest.param("cudf", marks=pytest.mark.skip(reason=e.msg)))
+else:
+
+    def cudf_mock_to_toplevel(mock_df: MockDataFrame) -> cudf.DataFrame:
+        if mock_df.num_columns() == 0:
+            return cudf.DataFrame()
+        serieses = []
+        for name, (array, nominal_dtype) in mock_df.items():
+            if NominalDtypeEnum.CATEGORY:
+                # See https://github.com/rapidsai/cudf/issues/11256
+                data = array.tolist()
+            else:
+                data = array
+            s = cudf.Series(data, name=name, dtype=nominal_dtype.value)
+            serieses.append(s)
+        if len(serieses) == 1:
+            # See https://github.com/rapidsai/cudf/issues/11244
+            df = serieses[0].to_frame()
+        else:
+            df = cudf.concat(serieses, axis=1)
+        return df
+
+    cupy_libinfo = LibraryInfo(
+        name="cudf",
+        mock_to_toplevel=cudf_mock_to_toplevel,
+        from_dataframe=cudf_from_dataframe,
+        frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
+        toplevel_to_compliant=lambda df: df.__dataframe__(),
+    )
+    libinfo_params.append(pytest.param(cupy_libinfo, id=cupy_libinfo.name))
 
 
 libinfos: Dict[str, LibraryInfo] = {}
