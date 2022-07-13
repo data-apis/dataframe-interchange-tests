@@ -51,20 +51,13 @@ ci_failing_ids = [
     # https://github.com/vaexio/vaex/issues/2093
     # https://github.com/vaexio/vaex/issues/2113
     "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
-]
-
-ci_flaky_ids = [
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-pandas]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-vaex]",
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-modin]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
 ]
 
 
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--ci"):
         for item in items:
-            if any(id_ in item.nodeid for id_ in ci_flaky_ids):
-                item.add_marker(pytest.mark.skip("flaky"))
-            elif any(id_ in item.nodeid for id_ in ci_failing_ids):
+            if any(id_ in item.nodeid for id_ in ci_failing_ids):
                 item.add_marker(pytest.mark.xfail())
