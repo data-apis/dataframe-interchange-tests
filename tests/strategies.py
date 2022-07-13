@@ -6,10 +6,10 @@ import numpy as np
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as nps
 
-__all__ = ["mock_dataframes", "MockDataFrame", "MockColumn", "NominalDtypeEnum"]
+__all__ = ["mock_dataframes", "MockDataFrame", "MockColumn", "NominalDtype"]
 
 
-class NominalDtypeEnum(Enum):
+class NominalDtype(Enum):
     BOOL = "bool"
     UTF8 = "U8"
     DATETIME64NS = "datetime64[ns]"
@@ -29,7 +29,7 @@ class NominalDtypeEnum(Enum):
 
 class MockColumn(NamedTuple):
     array: np.ndarray
-    nominal_dtype: NominalDtypeEnum
+    nominal_dtype: NominalDtype
 
 
 class MockDataFrame(Mapping):
@@ -73,7 +73,7 @@ class MockDataFrame(Mapping):
 def mock_dataframes(
     draw,
     *,
-    exclude_dtypes: Collection[NominalDtypeEnum] = [],
+    exclude_dtypes: Collection[NominalDtype] = [],
     allow_zero_cols: bool = True,
     allow_zero_rows: bool = True,
 ) -> MockDataFrame:
@@ -85,10 +85,10 @@ def mock_dataframes(
     min_nrows = 0 if allow_zero_rows else 1
     nrows = draw(st.integers(min_nrows, 5))
     name_to_column = {}
-    valid_dtypes = [e for e in NominalDtypeEnum if e not in exclude_dtypes]
+    valid_dtypes = [e for e in NominalDtype if e not in exclude_dtypes]
     for colname in colnames:
         nominal_dtype = draw(st.sampled_from(valid_dtypes))
-        if nominal_dtype == NominalDtypeEnum.CATEGORY:
+        if nominal_dtype == NominalDtype.CATEGORY:
             x_strat = nps.arrays(
                 dtype=np.int8, shape=nrows, elements=st.integers(0, 15)
             )

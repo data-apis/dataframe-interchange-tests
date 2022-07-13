@@ -7,7 +7,7 @@ import pytest
 from hypothesis import strategies as st
 
 from .api import DataFrame
-from .strategies import MockDataFrame, NominalDtypeEnum, mock_dataframes
+from .strategies import MockDataFrame, NominalDtype, mock_dataframes
 
 __all__ = ["libname_to_libinfo", "libinfo_params", "LibraryInfo"]
 
@@ -22,7 +22,7 @@ class LibraryInfo(NamedTuple):
     toplevel_to_compliant: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
         df.__dataframe__()["dataframe"]
     )
-    exclude_dtypes: List[NominalDtypeEnum] = []
+    exclude_dtypes: List[NominalDtype] = []
     allow_zero_cols: bool = True
     allow_zero_rows: bool = True
 
@@ -68,7 +68,7 @@ else:
             return pd.DataFrame()
         serieses = []
         for name, (array, nominal_dtype) in mock_df.items():
-            if nominal_dtype == NominalDtypeEnum.UTF8:
+            if nominal_dtype == NominalDtype.UTF8:
                 dtype = pd.StringDtype()
             else:
                 dtype = nominal_dtype.value
@@ -83,7 +83,7 @@ else:
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
         toplevel_to_compliant=lambda df: df.__dataframe__(),
-        exclude_dtypes=[NominalDtypeEnum.DATETIME64NS],
+        exclude_dtypes=[NominalDtype.DATETIME64NS],
     )
     libinfo_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
 
@@ -106,7 +106,7 @@ else:
             items.append((name, array))
         df = vaex.from_items(*items)
         for name, (array, nominal_dtype) in mock_df.items():
-            if nominal_dtype == NominalDtypeEnum.CATEGORY:
+            if nominal_dtype == NominalDtype.CATEGORY:
                 if not np.issubdtype(array.dtype, np.integer):
                     raise ValueError(
                         f"Array with dtype {array.dtype} was given, "
@@ -141,7 +141,7 @@ else:
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
         toplevel_to_compliant=lambda df: df.__dataframe__(),
-        exclude_dtypes=[NominalDtypeEnum.DATETIME64NS],
+        exclude_dtypes=[NominalDtype.DATETIME64NS],
         # https://github.com/vaexio/vaex/issues/2094
         allow_zero_cols=False,
         allow_zero_rows=False,
@@ -188,7 +188,7 @@ else:
             raise ValueError(f"{mock_df=} not supported by modin")
         serieses: List[mpd.Series] = []
         for name, (array, nominal_dtype) in mock_df.items():
-            if nominal_dtype == NominalDtypeEnum.UTF8:
+            if nominal_dtype == NominalDtype.UTF8:
                 dtype = mpd.StringDtype()
             else:
                 dtype = nominal_dtype.value
@@ -224,9 +224,9 @@ else:
         # https://github.com/modin-project/modin/issues/4654
         # https://github.com/modin-project/modin/issues/4652
         exclude_dtypes=[
-            NominalDtypeEnum.UTF8,
-            NominalDtypeEnum.DATETIME64NS,
-            NominalDtypeEnum.CATEGORY,
+            NominalDtype.UTF8,
+            NominalDtype.DATETIME64NS,
+            NominalDtype.CATEGORY,
         ],
         # https://github.com/modin-project/modin/issues/4643
         allow_zero_rows=False,
@@ -273,7 +273,7 @@ else:
             return cudf.DataFrame()
         serieses = []
         for name, (array, nominal_dtype) in mock_df.items():
-            if NominalDtypeEnum.CATEGORY:
+            if NominalDtype.CATEGORY:
                 # See https://github.com/rapidsai/cudf/issues/11256
                 data = array.tolist()
             else:

@@ -5,7 +5,7 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from .strategies import MockColumn, MockDataFrame, NominalDtypeEnum, mock_dataframes
+from .strategies import MockColumn, MockDataFrame, NominalDtype, mock_dataframes
 from .wrappers import LibraryInfo
 
 
@@ -23,7 +23,7 @@ def test_library_supports_zero_rows(libinfo: LibraryInfo):
     if not libinfo.allow_zero_rows:
         pytest.xfail("library doesn't support zero rows")
     mock_df = MockDataFrame(
-        {"foo_col": MockColumn(np.asarray([], dtype=np.int64), NominalDtypeEnum.INT64)}
+        {"foo_col": MockColumn(np.asarray([], dtype=np.int64), NominalDtype.INT64)}
     )
     df = libinfo.mock_to_toplevel(mock_df)
     # See above comment
