@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from enum import Enum
-from typing import Collection, Dict, List, NamedTuple
+from typing import Collection, Dict, NamedTuple
 
 import numpy as np
 from hypothesis import strategies as st
@@ -9,23 +9,22 @@ from hypothesis.extra import numpy as nps
 __all__ = ["mock_dataframes", "MockDataFrame", "MockColumn", "NominalDtypeEnum"]
 
 
-nominal_numerics: List[str] = []
-for kind in ["int", "uint"]:
-    for bitwidth in [8, 16, 32, 64]:
-        nominal_numerics.append(f"{kind}{bitwidth}")
-for bitwidth in [32, 64]:
-    nominal_numerics.append(f"float{bitwidth}")
-
-NominalDtypeEnum = Enum(
-    "NominalDtypeEnum",
-    {
-        "BOOL": "bool",
-        **{name.upper(): name for name in nominal_numerics},
-        "UTF8": "U8",
-        "DATETIME64NS": "datetime64[ns]",
-        "CATEGORY": "category",
-    },
-)
+class NominalDtypeEnum(Enum):
+    BOOL = "bool"
+    UTF8 = "U8"
+    DATETIME64NS = "datetime64[ns]"
+    CATEGORY = "category"
+    # Numerics
+    UINT8 = "uint8"
+    UINT16 = "uint16"
+    UINT32 = "uint32"
+    UINT64 = "uint64"
+    INT8 = "int8"
+    INT16 = "int16"
+    INT32 = "int32"
+    INT64 = "int64"
+    FLOAT32 = "float32"
+    FLOAT64 = "float64"
 
 
 class MockColumn(NamedTuple):
