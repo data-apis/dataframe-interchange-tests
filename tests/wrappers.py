@@ -4,7 +4,6 @@ from typing import Any, Callable, Dict, List, NamedTuple, Tuple
 
 import numpy as np
 import pytest
-from hypothesis import given
 from hypothesis import strategies as st
 
 from .api import DataFrame
@@ -303,23 +302,3 @@ for param in libinfo_params:
     if not any(m.name.startswith("skip") for m in param.marks):
         libinfo = param.values[0]
         libinfos[libinfo.name] = libinfo
-
-
-# ------------------------------------------------------------------------------
-# Meta tests
-
-
-@pytest.mark.parametrize(
-    "func_name", ["mock_dataframes", "toplevel_dataframes", "compliant_dataframes"]
-)
-@given(data=st.data())
-def test_strategy(libinfo: LibraryInfo, func_name: str, data: st.DataObject):
-    func = getattr(libinfo, func_name)
-    strat = func()
-    data.draw(strat, label="example")
-
-
-@given(data=st.data())
-def test_frame_equal(libinfo: LibraryInfo, data: st.DataObject):
-    df = data.draw(libinfo.toplevel_dataframes(), label="df")
-    assert libinfo.frame_equal(df, df)

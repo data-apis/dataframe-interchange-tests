@@ -3,7 +3,6 @@ from enum import Enum
 from typing import Collection, Dict, List, NamedTuple
 
 import numpy as np
-from hypothesis import given
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as nps
 
@@ -100,12 +99,3 @@ def mock_dataframes(
         assert not isinstance(nominal_dtype, str)
         name_to_column[colname] = MockColumn(x, nominal_dtype)
     return MockDataFrame(name_to_column)
-
-
-# ------------------------------------------------------------------------------
-# Meta tests
-
-
-@given(mock_dataframes())
-def test_mock_dataframes(_):
-    pass
