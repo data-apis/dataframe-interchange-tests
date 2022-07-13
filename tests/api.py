@@ -242,9 +242,7 @@ class Column:
         See `DataFrame.get_chunks` for details on ``n_chunks``.
         """
 
-    def get_buffers(
-        self,
-    ) -> dict[tuple[Buffer, Any], tuple[Buffer, Any] | None, tuple[Buffer, Any] | None]:
+    def get_buffers(self) -> dict[str, Any]:
         """
         Return a dictionary containing the underlying buffers.
 

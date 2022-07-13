@@ -1,6 +1,6 @@
 from inspect import Parameter, getmembers, isfunction, signature
 from types import FunctionType
-from typing import Callable
+from typing import Callable  # See https://github.com/python/mypy/issues/6864
 
 import pytest
 from hypothesis import assume, given, note, settings
@@ -75,7 +75,7 @@ def _test_signature(func, stub):
 def test_toplevel_dataframe_dunder_dataframe(libinfo: LibraryInfo, data: st.DataObject):
     df = data.draw(libinfo.toplevel_dataframes(), label="df")
     assert hasattr(df, "__dataframe__")
-    assert isinstance(df.__dataframe__, Callable)
+    assert isinstance(df.__dataframe__, Callable)  # type: ignore
     _test_signature(df.__dataframe__, DataFrame.__dataframe__)
 
 
@@ -94,7 +94,7 @@ def test_dataframe_method(
     df = data.draw(libinfo.compliant_dataframes(), label="df")
     assert hasattr(df, stub.__name__)
     method = getattr(df, stub.__name__)
-    assert isinstance(method, Callable)
+    assert isinstance(method, Callable)  # type: ignore
     _test_signature(method, stub)
 
 
@@ -114,7 +114,7 @@ def test_column_method(libinfo: LibraryInfo, stub: FunctionType, data: st.DataOb
     note(f"{col=}")
     assert hasattr(col, stub.__name__)
     method = getattr(col, stub.__name__)
-    assert isinstance(method, Callable)
+    assert isinstance(method, Callable)  # type: ignore
     _test_signature(method, stub)
 
 
@@ -137,5 +137,5 @@ def test_buffer_method(libinfo: LibraryInfo, stub: FunctionType, data: st.DataOb
     note(f"{buf=}")
     assert hasattr(buf, stub.__name__)
     method = getattr(buf, stub.__name__)
-    assert isinstance(method, Callable)
+    assert isinstance(method, Callable)  # type: ignore
     _test_signature(method, stub)

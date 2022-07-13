@@ -301,4 +301,5 @@ libname_to_libinfo: Dict[str, LibraryInfo] = {}
 for param in libinfo_params:
     if not any(m.name.startswith("skip") for m in param.marks):
         libinfo = param.values[0]
+        assert isinstance(libinfo, LibraryInfo)  # for mypy
         libname_to_libinfo[libinfo.name] = libinfo
