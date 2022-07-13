@@ -9,7 +9,7 @@ from hypothesis import strategies as st
 from .api import DataFrame
 from .strategies import MockDataFrame, NominalDtypeEnum, mock_dataframes
 
-__all__ = ["libinfos", "libinfo_params", "LibraryInfo"]
+__all__ = ["libname_to_libinfo", "libinfo_params", "LibraryInfo"]
 
 TopLevelDataFrame = Any
 
@@ -211,7 +211,7 @@ else:
             null_mask = s1.isnull()
             if not null_mask.equals(s2.isnull()):
                 return False
-            if not s1.loc[~null_mask].equals(s2.loc[~null_mask]):
+            if not s1[~null_mask].equals(s2[~null_mask]):
                 return False
         return True
 
@@ -297,8 +297,8 @@ else:
     libinfo_params.append(pytest.param(cupy_libinfo, id=cupy_libinfo.name))
 
 
-libinfos: Dict[str, LibraryInfo] = {}
+libname_to_libinfo: Dict[str, LibraryInfo] = {}
 for param in libinfo_params:
     if not any(m.name.startswith("skip") for m in param.marks):
         libinfo = param.values[0]
-        libinfos[libinfo.name] = libinfo
+        libname_to_libinfo[libinfo.name] = libinfo
