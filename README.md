@@ -16,7 +16,7 @@ it's a **work in progress**.
 
 * **Signatures** ([`test_signatures.py`](./tests/test_signatures.py)): Assert methods have the correct signatures.
 
-* **Basic functionality** ([`test_dataframe_object.py`](./tests/test_dataframe_object.py)): Smoke methods can take valid input, and assert they return valid output (where appropiate).
+* **Basic functionality** (e.g. [`test_dataframe_object.py`](./tests/test_dataframe_object.py)): Smoke methods can take valid input, and assert they return valid output (where appropiate).
 
 ### What the heck is `LibraryInfo`?
 

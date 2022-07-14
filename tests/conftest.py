@@ -62,3 +62,5 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if any(id_ in item.nodeid for id_ in ci_failing_ids):
                 item.add_marker(pytest.mark.xfail())
+            elif "test_column_object" in item.nodeid:
+                item.add_marker(pytest.mark.skip("TODO"))

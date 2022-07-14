@@ -15,14 +15,14 @@ class NominalDtype(Enum):
     DATETIME64NS = "datetime64[ns]"
     CATEGORY = "category"
     # Numerics
-    UINT8 = "uint8"
-    UINT16 = "uint16"
-    UINT32 = "uint32"
-    UINT64 = "uint64"
     INT8 = "int8"
     INT16 = "int16"
     INT32 = "int32"
     INT64 = "int64"
+    UINT8 = "uint8"
+    UINT16 = "uint16"
+    UINT32 = "uint32"
+    UINT64 = "uint64"
     FLOAT32 = "float32"
     FLOAT64 = "float64"
 
@@ -56,11 +56,11 @@ class MockDataFrame(Mapping):
     def __len__(self):
         return len(self._name_to_column)
 
-    def num_rows(self) -> int:
-        return self._nrows
-
     def num_columns(self) -> int:
         return self._ncols
+
+    def num_rows(self) -> int:
+        return self._nrows
 
     def __repr__(self) -> str:
         col_reprs = []

@@ -6,13 +6,13 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from .strategies import mock_dataframes
+from .strategies import MockDataFrame, mock_dataframes
 from .wrappers import LibraryInfo
 
 
 @given(mock_dataframes())
-def test_mock_dataframes(_):
-    pass
+def test_mock_dataframes(mock_df):
+    assert isinstance(mock_df, MockDataFrame)
 
 
 @pytest.mark.parametrize(
