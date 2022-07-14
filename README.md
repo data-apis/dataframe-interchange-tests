@@ -2,23 +2,21 @@
 
 This suite contains tests for dataframe libraries adopting the [Python DataFrame
 Interchange Protocol](https://data-apis.org/blog/dataframe_protocol_rfc/). Note
-it's still a heavy **work in progress**.
+it's a **work in progress**.
 
 ### What are we testing?
 
-Currently we test
-
 * **Round trips** ([`test_from_dataframe.py`](./tests/test_from_dataframe.py)):
 
-  1. Create a dataframe in library 1
-  2. Interchange via library 2 into a "destination" dataframe
-  3. Interchange that resulting dataframe via library 1 into a "roundtrip" dataframe
+  1. Creates a dataframe via library 1
+  2. Interchanges it via library 2 into a "destination" dataframe
+  3. Interchanges that resulting dataframe via library 1 into a "roundtrip" dataframe
 
   We assert the roundtrip dataframe is equivalent to the original dataframe.
 
-* **Signatures** ([`test_signatures.py`](./tests/test_signatures.py)): Assert functions have the correct signatures.
+* **Signatures** ([`test_signatures.py`](./tests/test_signatures.py)): Assert methods have the correct signatures.
 
-As in [`test_dataframe_object.py`](./tests/test_dataframe_object.py), I'm now exploring testing the results of the interchange API methods/properties.
+* **Basic functionality** ([`test_dataframe_object.py`](./tests/test_dataframe_object.py)): Smoke methods can take valid input, and assert they return valid output (where appropiate).
 
 ### What the heck is `LibraryInfo`?
 
