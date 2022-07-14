@@ -16,7 +16,7 @@ def test_mock_dataframes(_):
 
 
 @pytest.mark.parametrize(
-    "func_name", ["mock_dataframes", "toplevel_dataframes", "compliant_dataframes"]
+    "func_name", ["mock_dataframes", "toplevel_dataframes", "interchange_dataframes"]
 )
 @given(data=st.data())
 def test_strategy(libinfo: LibraryInfo, func_name: str, data: st.DataObject):

@@ -38,7 +38,8 @@ def pytest_configure(config):
 
 
 ci_failing_ids = [
-    # dataframe objects return the interchange dataframe, not a dict
+    # dataframe objects return the interchange dataframe, not a dict, although
+    # this behaviour might be in the spec soon.
     "test_dataframe_object.py::test_toplevel_dunder_dataframe[pandas]",
     "test_dataframe_object.py::test_toplevel_dunder_dataframe[vaex]",
     "test_dataframe_object.py::test_toplevel_dunder_dataframe[modin]",
