@@ -39,7 +39,8 @@ def pytest_configure(config):
 
 ci_failing_ids = [
     # dataframe objects return the interchange dataframe, not a dict, although
-    # this behaviour might be in the spec soon.
+    # this is the behaviour that should be in the spec soon.
+    # See https://github.com/data-apis/dataframe-api/pull/74
     "test_dataframe_object.py::test_toplevel_dunder_dataframe[pandas]",
     "test_dataframe_object.py::test_toplevel_dunder_dataframe[vaex]",
     "test_dataframe_object.py::test_toplevel_dunder_dataframe[modin]",
@@ -54,6 +55,28 @@ ci_failing_ids = [
     "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
+    # https://github.com/vaexio/vaex/issues/2093
+    "test_column_object.py::test_size[vaex]",
+    # https://github.com/vaexio/vaex/issues/2118
+    "test_column_object.py::test_dtype[vaex]",
+    # Raises TypeError as opposed to RuntimeError, although this is the
+    # behaviour that should be in the spec soon.
+    # See https://github.com/data-apis/dataframe-api/pull/74
+    "test_column_object.py::test_describe_categorical[pandas]",
+    "test_column_object.py::test_describe_categorical[vaex]",
+    "test_column_object.py::test_describe_categorical[cudf]",
+    # https://github.com/pandas-dev/pandas/issues/47789
+    "test_column_object.py::test_null_count[pandas]",
+    # https://github.com/vaexio/vaex/issues/2120
+    "test_column_object.py::test_null_count[vaex]",
+    # https://github.com/modin-project/modin/issues/4687
+    "test_column_object.py::test_null_count[modin]",
+    # https://github.com/vaexio/vaex/issues/2121
+    "test_column_object.py::test_get_chunks[vaex]",
+    # https://github.com/vaexio/vaex/issues/2122
+    "test_column_object.py::test_get_buffers[vaex]",
+    # https://github.com/rapidsai/cudf/issues/11308
+    "test_column_object.py::test_get_buffers[cudf]",
 ]
 
 
@@ -62,5 +85,3 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if any(id_ in item.nodeid for id_ in ci_failing_ids):
                 item.add_marker(pytest.mark.xfail())
-            elif "test_column_object" in item.nodeid:
-                item.add_marker(pytest.mark.skip("TODO"))

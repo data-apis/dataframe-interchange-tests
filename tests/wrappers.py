@@ -233,6 +233,11 @@ else:
     )
     libinfo_params.append(pytest.param(modin_libinfo, id=modin_libinfo.name))
 
+
+# cuDF
+# -----
+
+
 try:
     # cudf has a few issues with upstream pandas that we "fix" with a few hacks
     try:
@@ -293,6 +298,7 @@ else:
         from_dataframe=cudf_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
         toplevel_to_interchange=lambda df: df.__dataframe__(),
+        exclude_dtypes=[NominalDtype.DATETIME64NS],
     )
     libinfo_params.append(pytest.param(cupy_libinfo, id=cupy_libinfo.name))
 
