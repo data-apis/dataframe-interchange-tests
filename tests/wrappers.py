@@ -19,15 +19,13 @@ class LibraryInfo(NamedTuple):
     mock_to_toplevel: Callable[[MockDataFrame], TopLevelDataFrame]
     from_dataframe: Callable[[TopLevelDataFrame], DataFrame]
     frame_equal: Callable[[TopLevelDataFrame, DataFrame], bool]
-    toplevel_to_interchange: Callable[[TopLevelDataFrame], DataFrame] = lambda df: (
-        df.__dataframe__()["dataframe"]
-    )
     exclude_dtypes: List[NominalDtype] = []
     allow_zero_cols: bool = True
     allow_zero_rows: bool = True
 
     def mock_to_interchange(self, mock_dataframe: MockDataFrame) -> DataFrame:
-        return self.toplevel_to_interchange(self.mock_to_toplevel(mock_dataframe))
+        toplevel_df = self.mock_to_toplevel(mock_dataframe)
+        return toplevel_df.__dataframe__()
 
     @property
     def mock_dataframes_kwargs(self) -> Dict[str, Any]:
@@ -44,7 +42,7 @@ class LibraryInfo(NamedTuple):
         return self.mock_dataframes().map(self.mock_to_toplevel)
 
     def interchange_dataframes(self) -> st.SearchStrategy[TopLevelDataFrame]:
-        return self.toplevel_dataframes().map(self.toplevel_to_interchange)
+        return self.toplevel_dataframes().map(lambda df: df.__dataframe__())
 
     def __repr__(self) -> str:
         return f"LibraryInfo(<{self.name}>)"
@@ -82,7 +80,6 @@ else:
         mock_to_toplevel=pandas_mock_to_toplevel,
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
-        toplevel_to_interchange=lambda df: df.__dataframe__(),
         exclude_dtypes=[NominalDtype.DATETIME64NS],
     )
     libinfo_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
@@ -140,7 +137,6 @@ else:
         mock_to_toplevel=vaex_mock_to_toplevel,
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
-        toplevel_to_interchange=lambda df: df.__dataframe__(),
         exclude_dtypes=[NominalDtype.DATETIME64NS],
         # https://github.com/vaexio/vaex/issues/2094
         allow_zero_cols=False,
@@ -220,7 +216,6 @@ else:
         mock_to_toplevel=modin_mock_to_toplevel,
         from_dataframe=modin_from_dataframe,
         frame_equal=modin_frame_equal,
-        toplevel_to_interchange=lambda df: df.__dataframe__(),
         # https://github.com/modin-project/modin/issues/4654
         # https://github.com/modin-project/modin/issues/4652
         exclude_dtypes=[
@@ -297,7 +292,6 @@ else:
         mock_to_toplevel=cudf_mock_to_toplevel,
         from_dataframe=cudf_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
-        toplevel_to_interchange=lambda df: df.__dataframe__(),
         exclude_dtypes=[NominalDtype.DATETIME64NS],
     )
     libinfo_params.append(pytest.param(cupy_libinfo, id=cupy_libinfo.name))

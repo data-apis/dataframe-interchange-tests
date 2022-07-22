@@ -99,7 +99,7 @@ def test_describe_categorical(libinfo: LibraryInfo, data: st.DataObject):
             if mapping is not None:
                 assert isinstance(mapping, dict)
         else:
-            with pytest.raises(RuntimeError):
+            with pytest.raises(TypeError):
                 col.describe_categorical
 
 

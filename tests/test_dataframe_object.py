@@ -11,20 +11,14 @@ from .wrappers import LibraryInfo
 def test_toplevel_dunder_dataframe(libinfo: LibraryInfo, data: st.DataObject):
     df = data.draw(libinfo.toplevel_dataframes(), label="df")
     assert hasattr(df, "__dataframe__")
-    out = df.__dataframe__()
-    assert isinstance(out, dict)
-    assert hasattr(out, "dataframe")
-    assert hasattr(out, "version")
+    df.__dataframe__()
 
 
 @given(data=st.data())
 def test_dunder_dataframe(libinfo: LibraryInfo, data: st.DataObject):
     df = data.draw(libinfo.interchange_dataframes(), label="df")
     assert hasattr(df, "__dataframe__")
-    out = df.__dataframe__()
-    assert isinstance(out, dict)
-    assert hasattr(out, "dataframe")
-    assert hasattr(out, "version")
+    df.__dataframe__()
 
 
 @given(data=st.data())

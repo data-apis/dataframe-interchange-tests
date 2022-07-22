@@ -1,3 +1,4 @@
+import re
 from typing import Union
 
 import pytest
@@ -38,17 +39,15 @@ def pytest_configure(config):
 
 
 ci_failing_ids = [
-    # dataframe objects return the interchange dataframe, not a dict, although
-    # this is the behaviour that should be in the spec soon.
-    # See https://github.com/data-apis/dataframe-api/pull/74
-    "test_dataframe_object.py::test_toplevel_dunder_dataframe[pandas]",
-    "test_dataframe_object.py::test_toplevel_dunder_dataframe[vaex]",
-    "test_dataframe_object.py::test_toplevel_dunder_dataframe[modin]",
-    "test_dataframe_object.py::test_dunder_dataframe[pandas]",
-    "test_dataframe_object.py::test_dunder_dataframe[modin]",
-    # vaex's interchange dataframe doesn't have __dataframe__()
+    # vaex's and cudf's interchange dataframe doesn't have __dataframe__()
+    # See https://github.com/data-apis/dataframe-api/issues/80
     "test_dataframe_object.py::test_dunder_dataframe[vaex]",
     "test_signatures.py::test_dataframe_method[vaex-__dataframe__]",
+    "test_dataframe_object.py::test_dunder_dataframe[cudf]",
+    "test_signatures.py::test_dataframe_method[cudf-__dataframe__]",
+    # https://github.com/rapidsai/cudf/issues/11320
+    "test_signatures.py::test_buffer_method[cudf-__dlpack__]",
+    "test_signatures.py::test_buffer_method[cudf-__dlpack_device__]",
     # https://github.com/vaexio/vaex/issues/2083
     # https://github.com/vaexio/vaex/issues/2093
     # https://github.com/vaexio/vaex/issues/2113
@@ -59,11 +58,13 @@ ci_failing_ids = [
     "test_column_object.py::test_size[vaex]",
     # https://github.com/vaexio/vaex/issues/2118
     "test_column_object.py::test_dtype[vaex]",
-    # Raises TypeError as opposed to RuntimeError, although this is the
-    # behaviour that should be in the spec soon.
+    # Raises RuntimeError, which is technically correct, but the spec will
+    # require TypeError soon.
     # See https://github.com/data-apis/dataframe-api/pull/74
-    "test_column_object.py::test_describe_categorical[pandas]",
+    "test_column_object.py::test_describe_categorical[modin]",
+    # https://github.com/vaexio/vaex/issues/2113
     "test_column_object.py::test_describe_categorical[vaex]",
+    # https://github.com/rapidsai/cudf/issues/11332
     "test_column_object.py::test_describe_categorical[cudf]",
     # https://github.com/pandas-dev/pandas/issues/47789
     "test_column_object.py::test_null_count[pandas]",
@@ -79,9 +80,13 @@ ci_failing_ids = [
     "test_column_object.py::test_get_buffers[cudf]",
 ]
 
+r_cudf_roundtrip = re.compile(r"test_from_dataframe_roundtrip\[.*cudf.*\]")
+
 
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--ci"):
         for item in items:
             if any(id_ in item.nodeid for id_ in ci_failing_ids):
                 item.add_marker(pytest.mark.xfail())
+            elif r_cudf_roundtrip.search(item.nodeid):
+                item.add_marker(pytest.mark.skip("TODO"))
