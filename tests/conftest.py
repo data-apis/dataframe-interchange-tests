@@ -38,6 +38,7 @@ def pytest_configure(config):
         settings.load_profile("max_examples")
 
 
+# TODO: specify flaky cases, and skip instead of xfail
 ci_failing_ids = [
     # vaex's and cudf's interchange dataframe doesn't have __dataframe__()
     # See https://github.com/data-apis/dataframe-api/issues/80
@@ -62,8 +63,6 @@ ci_failing_ids = [
     # require TypeError soon.
     # See https://github.com/data-apis/dataframe-api/pull/74
     "test_column_object.py::test_describe_categorical[modin]",
-    # https://github.com/vaexio/vaex/issues/2113
-    "test_column_object.py::test_describe_categorical[vaex]",
     # https://github.com/rapidsai/cudf/issues/11332
     "test_column_object.py::test_describe_categorical[cudf]",
     # https://github.com/pandas-dev/pandas/issues/47789
@@ -74,10 +73,6 @@ ci_failing_ids = [
     "test_column_object.py::test_null_count[modin]",
     # https://github.com/vaexio/vaex/issues/2121
     "test_column_object.py::test_get_chunks[vaex]",
-    # https://github.com/vaexio/vaex/issues/2122
-    "test_column_object.py::test_get_buffers[vaex]",
-    # https://github.com/rapidsai/cudf/issues/11308
-    "test_column_object.py::test_get_buffers[cudf]",
 ]
 
 r_cudf_roundtrip = re.compile(r"test_from_dataframe_roundtrip\[.*cudf.*\]")

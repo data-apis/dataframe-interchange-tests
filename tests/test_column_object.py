@@ -85,7 +85,7 @@ def test_dtype(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_describe_categorical(libinfo: LibraryInfo, data: st.DataObject):
-    # TODO: ensure generation for categorical columns
+    # TODO: bias generation for categorical columns
     col, mock_col = draw_column_and_mock(libinfo, data)
     if mock_col.nominal_dtype == NominalDtype.CATEGORY:
         catinfo = col.describe_categorical

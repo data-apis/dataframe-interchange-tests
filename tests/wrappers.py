@@ -137,7 +137,11 @@ else:
         mock_to_toplevel=vaex_mock_to_toplevel,
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
-        exclude_dtypes=[NominalDtype.DATETIME64NS],
+        exclude_dtypes=[
+            NominalDtype.DATETIME64NS,
+            # https://github.com/vaexio/vaex/issues/2122
+            NominalDtype.CATEGORY,
+        ],
         # https://github.com/vaexio/vaex/issues/2094
         allow_zero_cols=False,
         allow_zero_rows=False,
@@ -292,7 +296,11 @@ else:
         mock_to_toplevel=cudf_mock_to_toplevel,
         from_dataframe=cudf_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
-        exclude_dtypes=[NominalDtype.DATETIME64NS],
+        exclude_dtypes=[
+            NominalDtype.DATETIME64NS,
+            # https://github.com/rapidsai/cudf/issues/11308
+            NominalDtype.UTF8,
+        ],
     )
     libinfo_params.append(pytest.param(cupy_libinfo, id=cupy_libinfo.name))
 
