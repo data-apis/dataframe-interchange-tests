@@ -89,4 +89,4 @@ def pytest_collection_modifyitems(config, items):
             if any(id_ in item.nodeid for id_ in ci_failing_ids):
                 item.add_marker(pytest.mark.xfail())
             elif r_cudf_roundtrip.search(item.nodeid):
-                item.add_marker(pytest.mark.skip("TODO"))
+                item.add_marker(pytest.mark.skip("crashes pytest"))

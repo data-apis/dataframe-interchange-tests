@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from enum import Enum
-from typing import Collection, Dict, NamedTuple
+from typing import Collection, Dict, NamedTuple, Optional
 
 import numpy as np
 from hypothesis import strategies as st
@@ -76,11 +76,19 @@ def mock_dataframes(
     exclude_dtypes: Collection[NominalDtype] = [],
     allow_zero_cols: bool = True,
     allow_zero_rows: bool = True,
+    ncols: Optional[int] = None,
 ) -> MockDataFrame:
-    min_ncols = 0 if allow_zero_cols else 1
+    if ncols is None:
+        min_ncols = 0 if allow_zero_cols else 1
+        max_ncols = 5
+    else:
+        if ncols == 0 and not allow_zero_cols:
+            raise ValueError(f"ncols cannot be 0 when {allow_zero_cols=}")
+        min_ncols = ncols
+        max_ncols = ncols
     colnames_strat = st.from_regex("[a-z]+", fullmatch=True)  # TODO: more valid names
     colnames = draw(
-        st.lists(colnames_strat, min_size=min_ncols, max_size=5, unique=True)
+        st.lists(colnames_strat, min_size=min_ncols, max_size=max_ncols, unique=True)
     )
     min_nrows = 0 if allow_zero_rows else 1
     nrows = draw(st.integers(min_nrows, 5))
