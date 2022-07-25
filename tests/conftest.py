@@ -38,8 +38,7 @@ def pytest_configure(config):
         settings.load_profile("max_examples")
 
 
-# TODO: specify flaky cases, and skip instead of xfail
-ci_failing_ids = [
+ci_xfail_ids = [
     # vaex's and cudf's interchange dataframe doesn't have __dataframe__()
     # See https://github.com/data-apis/dataframe-api/issues/80
     "test_dataframe_object.py::test_dunder_dataframe[vaex]",
@@ -57,23 +56,26 @@ ci_failing_ids = [
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
     # https://github.com/vaexio/vaex/issues/2093
     "test_column_object.py::test_size[vaex]",
-    # https://github.com/vaexio/vaex/issues/2118
-    "test_column_object.py::test_dtype[vaex]",
     # Raises RuntimeError, which is technically correct, but the spec will
     # require TypeError soon.
     # See https://github.com/data-apis/dataframe-api/pull/74
     "test_column_object.py::test_describe_categorical[modin]",
-    # https://github.com/rapidsai/cudf/issues/11332
-    "test_column_object.py::test_describe_categorical[cudf]",
     # https://github.com/pandas-dev/pandas/issues/47789
     "test_column_object.py::test_null_count[pandas]",
-    # https://github.com/vaexio/vaex/issues/2120
-    "test_column_object.py::test_null_count[vaex]",
     # https://github.com/modin-project/modin/issues/4687
     "test_column_object.py::test_null_count[modin]",
     # https://github.com/vaexio/vaex/issues/2121
     "test_column_object.py::test_get_chunks[vaex]",
 ]
+ci_skip_ids = [
+    # https://github.com/rapidsai/cudf/issues/11332
+    "test_column_object.py::test_describe_categorical[cudf]",
+    # https://github.com/vaexio/vaex/issues/2120
+    "test_column_object.py::test_null_count[vaex]",
+    # https://github.com/vaexio/vaex/issues/2118
+    "test_column_object.py::test_dtype[vaex]",
+]
+assert not any(case in ci_xfail_ids for case in ci_skip_ids)  # sanity check
 
 r_cudf_roundtrip = re.compile(r"test_from_dataframe_roundtrip\[.*cudf.*\]")
 
@@ -81,7 +83,9 @@ r_cudf_roundtrip = re.compile(r"test_from_dataframe_roundtrip\[.*cudf.*\]")
 def pytest_collection_modifyitems(config, items):
     if config.getoption("--ci"):
         for item in items:
-            if any(id_ in item.nodeid for id_ in ci_failing_ids):
+            if any(id_ in item.nodeid for id_ in ci_xfail_ids):
                 item.add_marker(pytest.mark.xfail())
+            elif any(id_ in item.nodeid for id_ in ci_skip_ids):
+                item.add_marker(pytest.mark.skip("flaky"))
             elif r_cudf_roundtrip.search(item.nodeid):
                 item.add_marker(pytest.mark.skip("crashes pytest"))

@@ -11,10 +11,6 @@ __all__ = ["mock_dataframes", "MockDataFrame", "MockColumn", "NominalDtype"]
 
 class NominalDtype(Enum):
     BOOL = "bool"
-    UTF8 = "U8"
-    DATETIME64NS = "datetime64[ns]"
-    CATEGORY = "category"
-    # Numerics
     INT8 = "int8"
     INT16 = "int16"
     INT32 = "int32"
@@ -25,6 +21,9 @@ class NominalDtype(Enum):
     UINT64 = "uint64"
     FLOAT32 = "float32"
     FLOAT64 = "float64"
+    UTF8 = "U8"
+    DATETIME64NS = "datetime64[ns]"
+    CATEGORY = "category"
 
 
 class MockColumn(NamedTuple):
