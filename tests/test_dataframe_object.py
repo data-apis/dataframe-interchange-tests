@@ -76,6 +76,17 @@ def test_get_column(libinfo: LibraryInfo, data: st.DataObject):
 
 
 @given(data=st.data())
+def test_get_column_by_name(libinfo: LibraryInfo, data: st.DataObject):
+    mock_df = data.draw(
+        mock_dataframes(**{**libinfo.mock_dataframes_kwargs, "allow_zero_cols": False}),
+        label="mock_df",
+    )
+    df = libinfo.mock_to_interchange(mock_df)
+    for name in mock_df.keys():
+        df.get_column_by_name(name)
+
+
+@given(data=st.data())
 def test_select_columns(libinfo: LibraryInfo, data: st.DataObject):
     mock_df = data.draw(
         mock_dataframes(**{**libinfo.mock_dataframes_kwargs, "allow_zero_cols": False}),
