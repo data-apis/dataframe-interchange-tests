@@ -68,6 +68,9 @@ class MockDataFrame(Mapping):
         return "MockDataFrame({" + ", ".join(col_reprs) + "})"
 
 
+utf8_strat = st.text(max_size=8).filter(lambda b: b[-1:] != "\0")
+
+
 @st.composite
 def mock_dataframes(
     draw,
@@ -85,9 +88,8 @@ def mock_dataframes(
             raise ValueError(f"ncols cannot be 0 when {allow_zero_cols=}")
         min_ncols = ncols
         max_ncols = ncols
-    colnames_strat = st.from_regex("[a-z]+", fullmatch=True)  # TODO: more valid names
     colnames = draw(
-        st.lists(colnames_strat, min_size=min_ncols, max_size=max_ncols, unique=True)
+        st.lists(utf8_strat, min_size=min_ncols, max_size=max_ncols, unique=True)
     )
     min_nrows = 0 if allow_zero_rows else 1
     nrows = draw(st.integers(min_nrows, 5))
@@ -95,13 +97,15 @@ def mock_dataframes(
     valid_dtypes = [e for e in NominalDtype if e not in exclude_dtypes]
     for colname in colnames:
         nominal_dtype = draw(st.sampled_from(valid_dtypes))
+        dtype = nominal_dtype.value
+        elements = None
         if nominal_dtype == NominalDtype.CATEGORY:
-            x_strat = nps.arrays(
-                dtype=np.int8, shape=nrows, elements=st.integers(0, 15)
-            )
-        else:
-            x_strat = nps.arrays(dtype=nominal_dtype.value, shape=nrows)
-        x = draw(x_strat)
+            dtype = np.int8
+            elements = st.integers(0, 15)
+        elif nominal_dtype == NominalDtype.UTF8:
+            # nps.arrays(dtype="U8") doesn't skip surrogates by default
+            elements = utf8_strat
+        x = draw(nps.arrays(dtype=dtype, shape=nrows, elements=elements))
         assert not isinstance(nominal_dtype, str)
         name_to_column[colname] = MockColumn(x, nominal_dtype)
     return MockDataFrame(name_to_column)
