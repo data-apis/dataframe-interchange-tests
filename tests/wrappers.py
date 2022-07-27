@@ -139,8 +139,6 @@ else:
         frame_equal=vaex_frame_equal,
         exclude_dtypes=[
             NominalDtype.DATETIME64NS,
-            # https://github.com/vaexio/vaex/issues/2122
-            NominalDtype.CATEGORY,
         ],
         # https://github.com/vaexio/vaex/issues/2094
         allow_zero_cols=False,
@@ -291,7 +289,7 @@ else:
             df = cudf.concat(serieses, axis=1)
         return df
 
-    cupy_libinfo = LibraryInfo(
+    cudf_libinfo = LibraryInfo(
         name="cudf",
         mock_to_toplevel=cudf_mock_to_toplevel,
         from_dataframe=cudf_from_dataframe,
@@ -302,7 +300,7 @@ else:
             NominalDtype.UTF8,
         ],
     )
-    libinfo_params.append(pytest.param(cupy_libinfo, id=cupy_libinfo.name))
+    libinfo_params.append(pytest.param(cudf_libinfo, id=cudf_libinfo.name))
 
 
 libname_to_libinfo: Dict[str, LibraryInfo] = {}

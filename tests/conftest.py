@@ -60,6 +60,8 @@ ci_xfail_ids = [
     # require TypeError soon.
     # See https://github.com/data-apis/dataframe-api/pull/74
     "test_column_object.py::test_describe_categorical[modin]",
+    # https://github.com/vaexio/vaex/issues/2113
+    "test_column_object.py::test_describe_categorical[vaex]",
     # https://github.com/pandas-dev/pandas/issues/47789
     "test_column_object.py::test_null_count[pandas]",
     # https://github.com/modin-project/modin/issues/4687
@@ -70,8 +72,6 @@ ci_xfail_ids = [
 ci_skip_ids = [
     # https://github.com/rapidsai/cudf/issues/11332
     "test_column_object.py::test_describe_categorical[cudf]",
-    # https://github.com/vaexio/vaex/issues/2120
-    "test_column_object.py::test_null_count[vaex]",
     # https://github.com/vaexio/vaex/issues/2118
     "test_column_object.py::test_dtype[vaex]",
 ]

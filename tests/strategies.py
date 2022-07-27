@@ -68,7 +68,9 @@ class MockDataFrame(Mapping):
         return "MockDataFrame({" + ", ".join(col_reprs) + "})"
 
 
-utf8_strat = st.text(max_size=8).filter(lambda b: b[-1:] != "\0")
+utf8_strat = st.from_regex(r"[a-zA-Z\_]{1,8}", fullmatch=True).filter(
+    lambda b: b[-1:] != "\0"
+)
 
 
 @st.composite

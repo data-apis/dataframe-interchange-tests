@@ -3,7 +3,7 @@ from typing import Dict, Tuple
 
 import numpy as np
 import pytest
-from hypothesis import given
+from hypothesis import given, note
 from hypothesis import strategies as st
 
 from tests.api import Column
@@ -23,6 +23,7 @@ def draw_column_and_mock(
     )
     df = libinfo.mock_to_interchange(mock_df)
     name = next(iter(mock_df.keys()))
+    note(f"{libinfo.mock_to_toplevel(mock_df)[name]=}")
     return df.get_column_by_name(name), mock_df[name]
 
 
