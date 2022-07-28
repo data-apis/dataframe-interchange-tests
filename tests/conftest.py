@@ -56,6 +56,8 @@ ci_xfail_ids = [
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
     # https://github.com/vaexio/vaex/issues/2093
     "test_column_object.py::test_size[vaex]",
+    # https://github.com/rapidsai/cudf/issues/11389
+    "test_column_object.py::test_dtype[cudf]",
     # Raises RuntimeError, which is technically correct, but the spec will
     # require TypeError soon.
     # See https://github.com/data-apis/dataframe-api/pull/74
@@ -73,6 +75,7 @@ ci_skip_ids = [
     # https://github.com/rapidsai/cudf/issues/11332
     "test_column_object.py::test_describe_categorical[cudf]",
     # https://github.com/vaexio/vaex/issues/2118
+    # https://github.com/vaexio/vaex/issues/2139
     "test_column_object.py::test_dtype[vaex]",
 ]
 assert not any(case in ci_xfail_ids for case in ci_skip_ids)  # sanity check

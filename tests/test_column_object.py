@@ -68,6 +68,21 @@ NOMINAL_TO_KIND: Dict[NominalDtype, DtypeKind] = {
     NominalDtype.CATEGORY: DtypeKind.CATEGORICAL,
 }
 
+NOMINAL_TO_FSTRING: Dict[NominalDtype, str] = {
+    NominalDtype.BOOL: "b",
+    NominalDtype.INT8: "c",
+    NominalDtype.INT16: "s",
+    NominalDtype.INT32: "i",
+    NominalDtype.INT64: "l",
+    NominalDtype.UINT8: "C",
+    NominalDtype.UINT16: "S",
+    NominalDtype.UINT32: "I",
+    NominalDtype.UINT64: "L",
+    NominalDtype.FLOAT32: "f",
+    NominalDtype.FLOAT64: "g",
+    NominalDtype.UTF8: "u",
+}
+
 
 @given(data=st.data())
 def test_dtype(libinfo: LibraryInfo, data: st.DataObject):
@@ -79,9 +94,14 @@ def test_dtype(libinfo: LibraryInfo, data: st.DataObject):
     assert isinstance(kind, IntEnum)
     assert kind.value == NOMINAL_TO_KIND[mock_col.nominal_dtype].value
     assert isinstance(bitwidth, int)
-    # TODO: Test fstring and endianness have valid values
     assert isinstance(fstring, str)
+    if mock_col.nominal_dtype == NominalDtype.DATETIME64NS:
+        assert fstring.startswith("tsn")
+    # TODO: test categorical format string (i.e. using col's actual dtype)
+    elif mock_col.nominal_dtype != NominalDtype.CATEGORY:
+        assert fstring == NOMINAL_TO_FSTRING[mock_col.nominal_dtype]
     assert isinstance(endianness, str)
+    assert len(endianness) == 1  # TODO: test actual value
 
 
 @given(data=st.data())
