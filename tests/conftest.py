@@ -58,6 +58,8 @@ ci_xfail_ids = [
     "test_column_object.py::test_size[vaex]",
     # https://github.com/rapidsai/cudf/issues/11389
     "test_column_object.py::test_dtype[cudf]",
+    # recent spec change https://github.com/data-apis/dataframe-api/pull/74
+    "test_column_object.py::test_describe_categorical",
     # Raises RuntimeError, which is technically correct, but the spec will
     # require TypeError soon.
     # See https://github.com/data-apis/dataframe-api/pull/74

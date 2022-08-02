@@ -1,6 +1,6 @@
 import re
 from copy import copy
-from typing import Any, Callable, Dict, List, NamedTuple, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Set, Tuple
 
 import numpy as np
 import pytest
@@ -19,7 +19,7 @@ class LibraryInfo(NamedTuple):
     mock_to_toplevel: Callable[[MockDataFrame], TopLevelDataFrame]
     from_dataframe: Callable[[TopLevelDataFrame], DataFrame]
     frame_equal: Callable[[TopLevelDataFrame, DataFrame], bool]
-    exclude_dtypes: List[NominalDtype] = []
+    supported_dtypes: Set[NominalDtype] = set(NominalDtype)
     allow_zero_cols: bool = True
     allow_zero_rows: bool = True
 
@@ -30,7 +30,7 @@ class LibraryInfo(NamedTuple):
     @property
     def mock_dataframes_kwargs(self) -> Dict[str, Any]:
         return {
-            "exclude_dtypes": self.exclude_dtypes,
+            "dtypes": self.supported_dtypes,
             "allow_zero_cols": self.allow_zero_cols,
             "allow_zero_rows": self.allow_zero_rows,
         }
@@ -80,7 +80,7 @@ else:
         mock_to_toplevel=pandas_mock_to_toplevel,
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
-        exclude_dtypes=[NominalDtype.DATETIME64NS],
+        supported_dtypes=set(NominalDtype) ^ {NominalDtype.DATETIME64NS},
     )
     libinfo_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
 
@@ -137,9 +137,7 @@ else:
         mock_to_toplevel=vaex_mock_to_toplevel,
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
-        exclude_dtypes=[
-            NominalDtype.DATETIME64NS,
-        ],
+        supported_dtypes=set(NominalDtype) ^ {NominalDtype.DATETIME64NS},
         # https://github.com/vaexio/vaex/issues/2094
         allow_zero_cols=False,
         allow_zero_rows=False,
@@ -218,13 +216,14 @@ else:
         mock_to_toplevel=modin_mock_to_toplevel,
         from_dataframe=modin_from_dataframe,
         frame_equal=modin_frame_equal,
-        # https://github.com/modin-project/modin/issues/4654
-        # https://github.com/modin-project/modin/issues/4652
-        exclude_dtypes=[
-            NominalDtype.UTF8,
+        supported_dtypes=set(NominalDtype)
+        ^ {
             NominalDtype.DATETIME64NS,
+            # https://github.com/modin-project/modin/issues/4654
+            NominalDtype.UTF8,
+            # https://github.com/modin-project/modin/issues/4652
             NominalDtype.CATEGORY,
-        ],
+        },
         # https://github.com/modin-project/modin/issues/4643
         allow_zero_rows=False,
     )
@@ -294,11 +293,12 @@ else:
         mock_to_toplevel=cudf_mock_to_toplevel,
         from_dataframe=cudf_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
-        exclude_dtypes=[
+        supported_dtypes=set(NominalDtype)
+        ^ {
             NominalDtype.DATETIME64NS,
             # https://github.com/rapidsai/cudf/issues/11308
             NominalDtype.UTF8,
-        ],
+        },
     )
     libinfo_params.append(pytest.param(cudf_libinfo, id=cudf_libinfo.name))
 

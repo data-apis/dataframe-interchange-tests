@@ -77,7 +77,7 @@ utf8_strat = st.from_regex(r"[a-zA-Z\_]{1,8}", fullmatch=True).filter(
 def mock_dataframes(
     draw,
     *,
-    exclude_dtypes: Collection[NominalDtype] = [],
+    dtypes: Collection[NominalDtype] = set(NominalDtype),
     allow_zero_cols: bool = True,
     allow_zero_rows: bool = True,
     ncols: Optional[int] = None,
@@ -96,9 +96,8 @@ def mock_dataframes(
     min_nrows = 0 if allow_zero_rows else 1
     nrows = draw(st.integers(min_nrows, 5))
     name_to_column = {}
-    valid_dtypes = [e for e in NominalDtype if e not in exclude_dtypes]
     for colname in colnames:
-        nominal_dtype = draw(st.sampled_from(valid_dtypes))
+        nominal_dtype = draw(st.sampled_from(list(dtypes)))
         dtype = nominal_dtype.value
         elements = None
         if nominal_dtype == NominalDtype.CATEGORY:

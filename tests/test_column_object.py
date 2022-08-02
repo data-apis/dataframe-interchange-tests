@@ -15,10 +15,10 @@ from .wrappers import LibraryInfo
 
 
 def draw_column_and_mock(
-    libinfo: LibraryInfo, data: st.DataObject
+    libinfo: LibraryInfo, data: st.DataObject, **kwargs
 ) -> Tuple[Column, MockColumn]:
     mock_df = data.draw(
-        mock_dataframes(**{**libinfo.mock_dataframes_kwargs, "ncols": 1}),
+        mock_dataframes(**{**libinfo.mock_dataframes_kwargs, **kwargs, "ncols": 1}),
         label="mock_df",
     )
     df = libinfo.mock_to_interchange(mock_df)
@@ -106,18 +106,22 @@ def test_dtype(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_describe_categorical(libinfo: LibraryInfo, data: st.DataObject):
-    # TODO: bias generation for categorical columns
-    col, mock_col = draw_column_and_mock(libinfo, data)
+    if NominalDtype.CATEGORY not in libinfo.supported_dtypes:
+        pytest.skip(f"categorical columns not generated for {libinfo.name}")
+    if data.draw(st.booleans()):
+        dtypes = {NominalDtype.CATEGORY}
+    else:
+        dtypes = libinfo.supported_dtypes  # TODO: removing categorical here is flaky?
+    col, mock_col = draw_column_and_mock(libinfo, data, dtypes=dtypes)
     if mock_col.nominal_dtype == NominalDtype.CATEGORY:
         catinfo = col.describe_categorical
         assert isinstance(catinfo, dict)
-        for key in ["is_ordered", "is_dictionary", "mapping"]:
+        for key in ["is_ordered", "is_dictionary", "categories"]:
             assert key in catinfo.keys()
         assert isinstance(catinfo["is_ordered"], bool)
         assert isinstance(catinfo["is_dictionary"], bool)
-        mapping = catinfo["mapping"]
-        if mapping is not None:
-            assert isinstance(mapping, dict)
+        if not catinfo["is_dictionary"]:
+            assert catinfo["categories"] is None
     else:
         with pytest.raises(TypeError):
             col.describe_categorical

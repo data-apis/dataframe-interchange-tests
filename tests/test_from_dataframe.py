@@ -18,12 +18,12 @@ def test_from_dataframe_roundtrip(
     Round trip of dataframe interchange results in a dataframe identical to the
     original dataframe.
     """
-    exclude_dtypes = set(orig_libinfo.exclude_dtypes) | set(dest_libinfo.exclude_dtypes)
+    dtypes = set(orig_libinfo.supported_dtypes) & set(dest_libinfo.supported_dtypes)
     allow_zero_cols = orig_libinfo.allow_zero_cols and dest_libinfo.allow_zero_cols
     allow_zero_rows = orig_libinfo.allow_zero_rows and dest_libinfo.allow_zero_rows
     mock_df = data.draw(
         mock_dataframes(
-            exclude_dtypes=exclude_dtypes,
+            dtypes=dtypes,
             allow_zero_cols=allow_zero_cols,
             allow_zero_rows=allow_zero_rows,
         ),
