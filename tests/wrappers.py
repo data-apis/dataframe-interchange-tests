@@ -87,7 +87,7 @@ libinfo_params = []
 
 try:
     import pandas as pd
-    from pandas.api.exchange import from_dataframe as pandas_from_dataframe
+    from pandas.api.interchange import from_dataframe as pandas_from_dataframe
 except ImportError as e:
     libinfo_params.append(pytest.param("pandas", marks=pytest.mark.skip(reason=e.msg)))
 else:
@@ -111,7 +111,6 @@ else:
         mock_to_toplevel=pandas_mock_to_toplevel,
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
-        supported_dtypes=set(NominalDtype) ^ {NominalDtype.DATETIME64NS},
     )
     libinfo_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
 
@@ -183,15 +182,19 @@ else:
 try:
     import modin  # noqa: F401
 
-    # One issue modin has with pandas upstream is an outdated import of an
-    # exception class, so we try monkey-patching the class to the old path.
     try:
+        import pandas
         from pandas.core import base
         from pandas.errors import DataError
     except ImportError:
         pass
     else:
+        # One issue modin has with pandas upstream is an outdated import of an
+        # exception class, so we try monkey-patching the class to the old path.
         setattr(base, "DataError", DataError)
+        # modin also hard checks for supported pandas versions, so we
+        # monkey-patch a supported version.
+        setattr(pandas, "__version__", "1.4.3")
 
     import ray
 
