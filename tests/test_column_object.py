@@ -30,10 +30,9 @@ def draw_column_and_mock(
 @given(data=st.data())
 def test_size(libinfo: LibraryInfo, data: st.DataObject):
     col, mock_col = draw_column_and_mock(libinfo, data)
-    size = col.size
-    if size is not None:
-        assert isinstance(size, int)
-        assert size == mock_col.array.size
+    size = col.size()
+    assert isinstance(size, int)
+    assert size == mock_col.array.size
 
 
 @given(data=st.data())
