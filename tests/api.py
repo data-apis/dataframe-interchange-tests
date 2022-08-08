@@ -1,15 +1,107 @@
 from __future__ import annotations
 
 import enum
-from typing import Any, Iterable, Sequence
-
-__all__ = ["Buffer", "Column", "DataFrame"]
-
-
-# TODO: load classes at runtime from submodule of df protocol repo
+from abc import ABC, abstractmethod
+from typing import Any, Iterable, Sequence, TypedDict
 
 
-class Buffer:
+class DlpackDeviceType(enum.IntEnum):
+    """Integer enum for device type codes matching DLPack."""
+
+    CPU = 1
+    CUDA = 2
+    CPU_PINNED = 3
+    OPENCL = 4
+    VULKAN = 7
+    METAL = 8
+    VPI = 9
+    ROCM = 10
+
+
+class DtypeKind(enum.IntEnum):
+    """
+    Integer enum for data types.
+
+    Attributes
+    ----------
+    INT : int
+        Matches to signed integer data type.
+    UINT : int
+        Matches to unsigned integer data type.
+    FLOAT : int
+        Matches to floating point data type.
+    BOOL : int
+        Matches to boolean data type.
+    STRING : int
+        Matches to string data type (UTF-8 encoded).
+    DATETIME : int
+        Matches to datetime data type.
+    CATEGORICAL : int
+        Matches to categorical data type.
+    """
+
+    INT = 0
+    UINT = 1
+    FLOAT = 2
+    BOOL = 20
+    STRING = 21  # UTF-8
+    DATETIME = 22
+    CATEGORICAL = 23
+
+
+class ColumnNullType(enum.IntEnum):
+    """
+    Integer enum for null type representation.
+
+    Attributes
+    ----------
+    NON_NULLABLE : int
+        Non-nullable column.
+    USE_NAN : int
+        Use explicit float NaN value.
+    USE_SENTINEL : int
+        Sentinel value besides NaN.
+    USE_BITMASK : int
+        The bit is set/unset representing a null on a certain position.
+    USE_BYTEMASK : int
+        The byte is set/unset representing a null on a certain position.
+    """
+
+    NON_NULLABLE = 0
+    USE_NAN = 1
+    USE_SENTINEL = 2
+    USE_BITMASK = 3
+    USE_BYTEMASK = 4
+
+
+class ColumnBuffers(TypedDict):
+    # first element is a buffer containing the column data;
+    # second element is the data buffer's associated dtype
+    data: tuple[Buffer, Any]
+
+    # first element is a buffer containing mask values indicating missing data;
+    # second element is the mask value buffer's associated dtype.
+    # None if the null representation is not a bit or byte mask
+    validity: tuple[Buffer, Any] | None
+
+    # first element is a buffer containing the offset values for
+    # variable-size binary data (e.g., variable-length strings);
+    # second element is the offsets buffer's associated dtype.
+    # None if the data buffer does not have an associated offsets buffer
+    offsets: tuple[Buffer, Any] | None
+
+
+class CategoricalDescription(TypedDict):
+    # whether the ordering of dictionary indices is semantically meaningful
+    is_ordered: bool
+    # whether a dictionary-style mapping of categorical values to other objects exists
+    is_dictionary: bool
+    # Python-level only (e.g. ``{int: str}``).
+    # None if not a dictionary-style categorical.
+    categories: Column | None
+
+
+class Buffer(ABC):
     """
     Data in the buffer is guaranteed to be contiguous in memory.
 
@@ -25,17 +117,20 @@ class Buffer:
     """
 
     @property
+    @abstractmethod
     def bufsize(self) -> int:
         """
         Buffer size in bytes.
         """
 
     @property
+    @abstractmethod
     def ptr(self) -> int:
         """
         Pointer to start of the buffer as an integer.
         """
 
+    @abstractmethod
     def __dlpack__(self):
         """
         Produce DLPack capsule (see array API standard).
@@ -50,26 +145,16 @@ class Buffer:
         """
         raise NotImplementedError("__dlpack__")
 
-    def __dlpack_device__(self) -> tuple[enum.IntEnum, int]:
+    @abstractmethod
+    def __dlpack_device__(self) -> tuple[DlpackDeviceType, int | None]:
         """
         Device type and device ID for where the data in the buffer resides.
-
-        Uses device type codes matching DLPack. Enum members are::
-
-            - CPU = 1
-            - CUDA = 2
-            - CPU_PINNED = 3
-            - OPENCL = 4
-            - VULKAN = 7
-            - METAL = 8
-            - VPI = 9
-            - ROCM = 10
-
+        Uses device type codes matching DLPack.
         Note: must be implemented even if ``__dlpack__`` is not.
         """
 
 
-class Column:
+class Column(ABC):
     """
     A column object, with only the methods and properties required by the
     interchange protocol defined.
@@ -111,19 +196,22 @@ class Column:
 
     Note: this Column object can only be produced by ``__dataframe__``, so
           doesn't need its own version or ``__column__`` protocol.
-
     """
 
-    @property
-    def size(self) -> int | None:
+    @abstractmethod
+    def size(self) -> int:
         """
         Size of the column, in elements.
 
         Corresponds to DataFrame.num_rows() if column is a single chunk;
         equal to size of this current chunk otherwise.
+
+        Is a method rather than a property because it may cause a (potentially
+        expensive) computation for some dataframe implementations.
         """
 
     @property
+    @abstractmethod
     def offset(self) -> int:
         """
         Offset of first element.
@@ -134,19 +222,10 @@ class Column:
         """
 
     @property
-    def dtype(self) -> tuple[enum.IntEnum, int, str, str]:
+    @abstractmethod
+    def dtype(self) -> tuple[DtypeKind, int, str, str]:
         """
         Dtype description as a tuple ``(kind, bit-width, format string, endianness)``.
-
-        Kind :
-
-            - INT = 0
-            - UINT = 1
-            - FLOAT = 2
-            - BOOL = 20
-            - STRING = 21   # UTF-8
-            - DATETIME = 22
-            - CATEGORICAL = 23
 
         Bit-width : the number of bits as an integer
         Format string : data type description format string in Apache Arrow C
@@ -154,7 +233,6 @@ class Column:
         Endianness : current only native endianness (``=``) is supported
 
         Notes:
-
             - Kind specifiers are aligned with DLPack where possible (hence the
               jump to 20, leave enough room for future extension)
             - Masks must be specified as boolean with either bit width 1 (for bit
@@ -174,42 +252,34 @@ class Column:
               and nested (list, struct, map, union) dtypes.
         """
 
-    # TODO: What should the dict key be?
     @property
-    def describe_categorical(self) -> dict[str, tuple[bool, bool, dict | None]]:
+    @abstractmethod
+    def describe_categorical(self) -> CategoricalDescription:
         """
         If the dtype is categorical, there are two options:
-
         - There are only values in the data buffer.
-        - There is a separate dictionary-style encoding for categorical values.
+        - There is a separate non-categorical Column encoding categorical values.
 
-        Raises RuntimeError if the dtype is not categorical
+        Raises TypeError if the dtype is not categorical
 
-        Content of returned dict:
-
+        Returns the dictionary with description on how to interpret the data buffer:
             - "is_ordered" : bool, whether the ordering of dictionary indices is
                              semantically meaningful.
-            - "is_dictionary" : bool, whether a dictionary-style mapping of
+            - "is_dictionary" : bool, whether a mapping of
                                 categorical values to other objects exists
-            - "mapping" : dict, Python-level only (e.g. ``{int: str}``).
-                          None if not a dictionary-style categorical.
+            - "categories" : Column representing the (implicit) mapping of indices to
+                             category values (e.g. an array of cat1, cat2, ...).
+                             None if not a dictionary-style categorical.
 
         TBD: are there any other in-memory representations that are needed?
         """
 
     @property
-    def describe_null(self) -> tuple[int, Any]:
+    @abstractmethod
+    def describe_null(self) -> tuple[ColumnNullType, Any]:
         """
         Return the missing value (or "null") representation the column dtype
         uses, as a tuple ``(kind, value)``.
-
-        Kind:
-
-            - 0 : non-nullable
-            - 1 : NaN/NaT
-            - 2 : sentinel value
-            - 3 : bit mask
-            - 4 : byte mask
 
         Value : if kind is "sentinel value", the actual value. If kind is a bit
         mask or a byte mask, the value (0 or 1) indicating a missing value. None
@@ -217,6 +287,7 @@ class Column:
         """
 
     @property
+    @abstractmethod
     def null_count(self) -> int | None:
         """
         Number of null elements, if known.
@@ -225,16 +296,19 @@ class Column:
         """
 
     @property
+    @abstractmethod
     def metadata(self) -> dict[str, Any]:
         """
         The metadata for the column. See `DataFrame.metadata` for more details.
         """
 
+    @abstractmethod
     def num_chunks(self) -> int:
         """
         Return the number of chunks the column consists of.
         """
 
+    @abstractmethod
     def get_chunks(self, n_chunks: int | None = None) -> Iterable[Column]:
         """
         Return an iterator yielding the chunks.
@@ -242,7 +316,8 @@ class Column:
         See `DataFrame.get_chunks` for details on ``n_chunks``.
         """
 
-    def get_buffers(self) -> dict[str, Any]:
+    @abstractmethod
+    def get_buffers(self) -> ColumnBuffers:
         """
         Return a dictionary containing the underlying buffers.
 
@@ -270,10 +345,10 @@ class Column:
 #        Children columns underneath the column, each object in this iterator
 #        must adhere to the column specification.
 #        """
-#
+#        pass
 
 
-class DataFrame:
+class DataFrame(ABC):
     """
     A data frame class, with only the methods required by the interchange
     protocol defined.
@@ -288,28 +363,27 @@ class DataFrame:
     to the dataframe interchange protocol specification.
     """
 
-    def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True) -> dict:
+    version = 0  # version of the protocol
+
+    @abstractmethod
+    def __dataframe__(
+        self, nan_as_null: bool = False, allow_copy: bool = True
+    ) -> DataFrame:
         """
-        Produces a dictionary object following the dataframe protocol specification.
+        Construct a new exchange object, potentially changing the parameters.
 
         ``nan_as_null`` is a keyword intended for the consumer to tell the
-        producer to overwrite null values in the data with ``NaN`` (or ``NaT``).
+        producer to overwrite null values in the data with ``NaN``.
         It is intended for cases where the consumer does not support the bit
         mask or byte mask that is the producer's native representation.
-
         ``allow_copy`` is a keyword that defines whether or not the library is
         allowed to make a copy of the data. For example, copying data would be
         necessary if a library supports strided buffers, given that this protocol
         specifies contiguous buffers.
         """
-        self._nan_as_null = nan_as_null
-        self._allow_zero_zopy = allow_copy
-        return {
-            "dataframe": self,  # DataFrame object adhering to the protocol
-            "version": 0,  # Version number of the protocol
-        }
 
     @property
+    @abstractmethod
     def metadata(self) -> dict[str, Any]:
         """
         The metadata for the data frame, as a dictionary with string keys. The
@@ -321,11 +395,13 @@ class DataFrame:
         followed by a period and the desired name, e.g, ``pandas.indexcol``.
         """
 
+    @abstractmethod
     def num_columns(self) -> int:
         """
         Return the number of columns in the DataFrame.
         """
 
+    @abstractmethod
     def num_rows(self) -> int | None:
         # TODO: not happy with Optional, but need to flag it may be expensive
         #       why include it if it may be None - what do we expect consumers
@@ -334,41 +410,49 @@ class DataFrame:
         Return the number of rows in the DataFrame, if available.
         """
 
+    @abstractmethod
     def num_chunks(self) -> int:
         """
         Return the number of chunks the DataFrame consists of.
         """
 
+    @abstractmethod
     def column_names(self) -> Iterable[str]:
         """
         Return an iterator yielding the column names.
         """
 
+    @abstractmethod
     def get_column(self, i: int) -> Column:
         """
         Return the column at the indicated position.
         """
 
+    @abstractmethod
     def get_column_by_name(self, name: str) -> Column:
         """
         Return the column whose name is the indicated name.
         """
 
+    @abstractmethod
     def get_columns(self) -> Iterable[Column]:
         """
         Return an iterator yielding the columns.
         """
 
+    @abstractmethod
     def select_columns(self, indices: Sequence[int]) -> DataFrame:
         """
         Create a new DataFrame by selecting a subset of columns by index.
         """
 
+    @abstractmethod
     def select_columns_by_name(self, names: Sequence[str]) -> DataFrame:
         """
         Create a new DataFrame by selecting a subset of columns by name.
         """
 
+    @abstractmethod
     def get_chunks(self, n_chunks: int | None = None) -> Iterable[DataFrame]:
         """
         Return an iterator yielding the chunks.
