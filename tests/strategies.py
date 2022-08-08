@@ -34,16 +34,16 @@ class MockColumn(NamedTuple):
 class MockDataFrame(Mapping):
     def __init__(self, name_to_column: Dict[str, MockColumn]):
         if len(name_to_column) == 0:
-            self._ncols = 0
-            self._nrows = 0
+            self.ncols = 0
+            self.nrows = 0
         else:
             arrays = [x for x, _ in name_to_column.values()]
-            self._ncols = len(arrays)
-            self._nrows = arrays[0].size
+            self.ncols = len(arrays)
+            self.nrows = arrays[0].size
             for x in arrays:
                 # sanity checks
                 assert x.ndim == 1
-                assert x.size == self._nrows
+                assert x.size == self.nrows
         self._name_to_column = name_to_column
 
     def __getitem__(self, key: str):
@@ -54,12 +54,6 @@ class MockDataFrame(Mapping):
 
     def __len__(self):
         return len(self._name_to_column)
-
-    def num_columns(self) -> int:
-        return self._ncols
-
-    def num_rows(self) -> int:
-        return self._nrows
 
     def __repr__(self) -> str:
         col_reprs = []

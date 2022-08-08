@@ -62,7 +62,7 @@ except ImportError as e:
 else:
 
     def pandas_mock_to_toplevel(mock_df: MockDataFrame) -> pd.DataFrame:
-        if mock_df.num_columns() == 0:
+        if mock_df.ncols == 0:
             return pd.DataFrame()
         serieses = []
         for name, (array, nominal_dtype) in mock_df.items():
@@ -96,7 +96,7 @@ except ImportError as e:
 else:
 
     def vaex_mock_to_toplevel(mock_df: MockDataFrame) -> TopLevelDataFrame:
-        if mock_df.num_columns() == 0 or mock_df.num_rows() == 0:
+        if mock_df.ncols == 0 or mock_df.nrows == 0:
             raise ValueError(f"{mock_df=} not supported by vaex")
         items: List[Tuple[str, np.ndarray]] = []
         for name, (array, _) in mock_df.items():
@@ -178,9 +178,9 @@ except ImportError as e:
 else:
 
     def modin_mock_to_toplevel(mock_df: MockDataFrame) -> mpd.DataFrame:
-        if mock_df.num_columns() == 0:
+        if mock_df.ncols == 0:
             return mpd.DataFrame()
-        if mock_df.num_rows() == 0:
+        if mock_df.nrows == 0:
             raise ValueError(f"{mock_df=} not supported by modin")
         serieses: List[mpd.Series] = []
         for name, (array, nominal_dtype) in mock_df.items():
@@ -270,7 +270,7 @@ except ImportError as e:
 else:
 
     def cudf_mock_to_toplevel(mock_df: MockDataFrame) -> cudf.DataFrame:
-        if mock_df.num_columns() == 0:
+        if mock_df.ncols == 0:
             return cudf.DataFrame()
         serieses = []
         for name, (array, nominal_dtype) in mock_df.items():
