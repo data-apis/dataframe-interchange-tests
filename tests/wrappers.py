@@ -6,8 +6,14 @@ import numpy as np
 import pytest
 from hypothesis import strategies as st
 
-from .api import DataFrame
-from .strategies import MockDataFrame, NominalDtype, mock_dataframes
+from .api import Buffer, Column, DataFrame
+from .strategies import (
+    MockColumn,
+    MockDataFrame,
+    NominalDtype,
+    mock_dataframes,
+    mock_single_col_dataframes,
+)
 
 __all__ = ["libname_to_libinfo", "libinfo_params", "LibraryInfo"]
 
@@ -43,6 +49,31 @@ class LibraryInfo(NamedTuple):
 
     def interchange_dataframes(self) -> st.SearchStrategy[TopLevelDataFrame]:
         return self.toplevel_dataframes().map(lambda df: df.__dataframe__())
+
+    def mock_single_col_dataframes(self) -> st.SearchStrategy[MockDataFrame]:
+        return mock_single_col_dataframes(
+            dtypes=self.supported_dtypes, allow_zero_rows=self.allow_zero_rows
+        )
+
+    def columns(self) -> st.SearchStrategy[Column]:
+        return (
+            self.mock_single_col_dataframes()
+            .map(self.mock_to_interchange)
+            .map(lambda df: df.get_column(0))
+        )
+
+    def columns_and_mock_columns(self) -> st.SearchStrategy[Tuple[Column, MockColumn]]:
+        mock_df_strat = st.shared(self.mock_single_col_dataframes())
+        col_strat = mock_df_strat.map(self.mock_to_interchange).map(
+            lambda df: df.get_column(0)
+        )
+        mock_col_strat = mock_df_strat.map(
+            lambda mock_df: next(col for col in mock_df.values())
+        )
+        return st.tuples(col_strat, mock_col_strat)
+
+    def buffers(self) -> st.SearchStrategy[Buffer]:
+        return self.columns().map(lambda col: col.get_buffers()["data"][0])
 
     def __repr__(self) -> str:
         return f"LibraryInfo(<{self.name}>)"
@@ -181,7 +212,7 @@ else:
         if mock_df.ncols == 0:
             return mpd.DataFrame()
         if mock_df.nrows == 0:
-            raise ValueError(f"{mock_df=} not supported by modin")
+            raise ValueError(f"{mock_df.nrows=} not supported by modin")
         serieses: List[mpd.Series] = []
         for name, (array, nominal_dtype) in mock_df.items():
             if nominal_dtype == NominalDtype.UTF8:
@@ -221,8 +252,6 @@ else:
             NominalDtype.DATETIME64NS,
             # https://github.com/modin-project/modin/issues/4654
             NominalDtype.UTF8,
-            # https://github.com/modin-project/modin/issues/4652
-            NominalDtype.CATEGORY,
         },
         # https://github.com/modin-project/modin/issues/4643
         allow_zero_rows=False,

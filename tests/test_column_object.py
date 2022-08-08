@@ -1,35 +1,18 @@
 from enum import IntEnum
-from typing import Dict, Tuple
+from typing import Dict
 
 import numpy as np
 import pytest
-from hypothesis import given, note
+from hypothesis import given
 from hypothesis import strategies as st
 
-from tests.api import Column
-
-from .strategies import MockColumn, NominalDtype, mock_dataframes
+from .strategies import NominalDtype
 from .wrappers import LibraryInfo
-
-# TODO: helpful assertion messages
-
-
-def draw_column_and_mock(
-    libinfo: LibraryInfo, data: st.DataObject, **kwargs
-) -> Tuple[Column, MockColumn]:
-    mock_df = data.draw(
-        mock_dataframes(**{**libinfo.mock_dataframes_kwargs, **kwargs, "ncols": 1}),
-        label="mock_df",
-    )
-    df = libinfo.mock_to_interchange(mock_df)
-    name = next(iter(mock_df.keys()))
-    note(f"{libinfo.mock_to_toplevel(mock_df)[name]=}")
-    return df.get_column_by_name(name), mock_df[name]
 
 
 @given(data=st.data())
 def test_size(libinfo: LibraryInfo, data: st.DataObject):
-    col, mock_col = draw_column_and_mock(libinfo, data)
+    col, mock_col = data.draw(libinfo.columns_and_mock_columns(), label="col, mock_col")
     size = col.size()
     assert isinstance(size, int)
     assert size == mock_col.array.size
@@ -37,7 +20,7 @@ def test_size(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_offset(libinfo: LibraryInfo, data: st.DataObject):
-    col, _ = draw_column_and_mock(libinfo, data)
+    col = data.draw(libinfo.columns(), label="col")
     offset = col.offset
     assert isinstance(offset, int)
 
@@ -85,7 +68,7 @@ NOMINAL_TO_FSTRING: Dict[NominalDtype, str] = {
 
 @given(data=st.data())
 def test_dtype(libinfo: LibraryInfo, data: st.DataObject):
-    col, mock_col = draw_column_and_mock(libinfo, data)
+    col, mock_col = data.draw(libinfo.columns_and_mock_columns(), label="col, mock_col")
     dtype = col.dtype
     assert isinstance(dtype, tuple)
     assert len(dtype) == 4
@@ -107,11 +90,8 @@ def test_dtype(libinfo: LibraryInfo, data: st.DataObject):
 def test_describe_categorical(libinfo: LibraryInfo, data: st.DataObject):
     if NominalDtype.CATEGORY not in libinfo.supported_dtypes:
         pytest.skip(f"categorical columns not generated for {libinfo.name}")
-    if data.draw(st.booleans()):
-        dtypes = {NominalDtype.CATEGORY}
-    else:
-        dtypes = libinfo.supported_dtypes  # TODO: removing categorical here is flaky?
-    col, mock_col = draw_column_and_mock(libinfo, data, dtypes=dtypes)
+    # TODO: bias categorical generation
+    col, mock_col = data.draw(libinfo.columns_and_mock_columns(), label="col, mock_col")
     if mock_col.nominal_dtype == NominalDtype.CATEGORY:
         catinfo = col.describe_categorical
         assert isinstance(catinfo, dict)
@@ -128,14 +108,14 @@ def test_describe_categorical(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_describe_null(libinfo: LibraryInfo, data: st.DataObject):
-    col, _ = draw_column_and_mock(libinfo, data)
+    col = data.draw(libinfo.columns(), label="col")
     nullinfo = col.describe_null
     assert isinstance(nullinfo, tuple)
     assert len(nullinfo) == 2
     kind, value = nullinfo
     assert isinstance(kind, int)
     assert kind in [0, 1, 2, 3, 4]
-    if kind in [0, 1]:  # noll-nullable or NaN/NaT
+    if kind in [0, 1]:  # noll-nullable or NaN
         assert value is None
     elif kind in [3, 4]:  # bit or byte mask
         assert isinstance(value, int)
@@ -144,7 +124,7 @@ def test_describe_null(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_null_count(libinfo: LibraryInfo, data: st.DataObject):
-    col, mock_col = draw_column_and_mock(libinfo, data)
+    col, mock_col = data.draw(libinfo.columns_and_mock_columns(), label="col, mock_col")
     null_count = col.null_count
     if null_count is not None:
         assert isinstance(null_count, int)
@@ -154,14 +134,14 @@ def test_null_count(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_num_chunks(libinfo: LibraryInfo, data: st.DataObject):
-    col, _ = draw_column_and_mock(libinfo, data)
+    col = data.draw(libinfo.columns(), label="col")
     num_chunks = col.num_chunks()
     assert isinstance(num_chunks, int)
 
 
 @given(data=st.data())
 def test_get_chunks(libinfo: LibraryInfo, data: st.DataObject):
-    col, _ = draw_column_and_mock(libinfo, data)
+    col = data.draw(libinfo.columns(), label="col")
     num_chunks = col.num_chunks()
     n_chunks = data.draw(
         st.none() | st.integers(1, 2).map(lambda n: n * num_chunks),
@@ -176,7 +156,7 @@ def test_get_chunks(libinfo: LibraryInfo, data: st.DataObject):
 
 @given(data=st.data())
 def test_get_buffers(libinfo: LibraryInfo, data: st.DataObject):
-    col, _ = draw_column_and_mock(libinfo, data)
+    col = data.draw(libinfo.columns(), label="col")
     bufinfo = col.get_buffers()
     assert isinstance(bufinfo, dict)
     for key in ["data", "validity", "offsets"]:

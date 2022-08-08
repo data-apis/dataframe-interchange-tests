@@ -1,12 +1,18 @@
 from collections.abc import Mapping
 from enum import Enum
-from typing import Collection, Dict, NamedTuple, Optional
+from typing import Collection, Dict, NamedTuple
 
 import numpy as np
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as nps
 
-__all__ = ["mock_dataframes", "MockDataFrame", "MockColumn", "NominalDtype"]
+__all__ = [
+    "mock_dataframes",
+    "mock_single_col_dataframes",
+    "MockDataFrame",
+    "MockColumn",
+    "NominalDtype",
+]
 
 
 class NominalDtype(Enum):
@@ -62,45 +68,58 @@ class MockDataFrame(Mapping):
         return "MockDataFrame({" + ", ".join(col_reprs) + "})"
 
 
-utf8_strat = st.from_regex(r"[a-zA-Z\_]{1,8}", fullmatch=True).filter(
-    lambda b: b[-1:] != "\0"
-)
+def utf8_strings() -> st.SearchStrategy[str]:
+    return st.from_regex(r"[a-zA-Z\_]{1,8}", fullmatch=True).filter(
+        lambda b: b[-1:] != "\0"
+    )
+
+
+def mock_columns(
+    nominal_dtype: NominalDtype, size: int
+) -> st.SearchStrategy[MockColumn]:
+    dtype = nominal_dtype.value
+    elements = None
+    if nominal_dtype == NominalDtype.CATEGORY:
+        dtype = np.int8
+        elements = st.integers(0, 15)
+    elif nominal_dtype == NominalDtype.UTF8:
+        # nps.arrays(dtype="U8") doesn't skip surrogates by default
+        elements = utf8_strings()
+    x_strat = nps.arrays(dtype=dtype, shape=size, elements=elements)
+    return x_strat.map(lambda x: MockColumn(x, nominal_dtype))
 
 
 @st.composite
 def mock_dataframes(
-    draw,
+    draw: st.DrawFn,
     *,
     dtypes: Collection[NominalDtype] = set(NominalDtype),
     allow_zero_cols: bool = True,
     allow_zero_rows: bool = True,
-    ncols: Optional[int] = None,
 ) -> MockDataFrame:
-    if ncols is None:
-        min_ncols = 0 if allow_zero_cols else 1
-        max_ncols = 5
-    else:
-        if ncols == 0 and not allow_zero_cols:
-            raise ValueError(f"ncols cannot be 0 when {allow_zero_cols=}")
-        min_ncols = ncols
-        max_ncols = ncols
+    min_ncols = 0 if allow_zero_cols else 1
     colnames = draw(
-        st.lists(utf8_strat, min_size=min_ncols, max_size=max_ncols, unique=True)
+        st.lists(utf8_strings(), min_size=min_ncols, max_size=5, unique=True)
     )
     min_nrows = 0 if allow_zero_rows else 1
     nrows = draw(st.integers(min_nrows, 5))
     name_to_column = {}
     for colname in colnames:
         nominal_dtype = draw(st.sampled_from(list(dtypes)))
-        dtype = nominal_dtype.value
-        elements = None
-        if nominal_dtype == NominalDtype.CATEGORY:
-            dtype = np.int8
-            elements = st.integers(0, 15)
-        elif nominal_dtype == NominalDtype.UTF8:
-            # nps.arrays(dtype="U8") doesn't skip surrogates by default
-            elements = utf8_strat
-        x = draw(nps.arrays(dtype=dtype, shape=nrows, elements=elements))
-        assert not isinstance(nominal_dtype, str)
-        name_to_column[colname] = MockColumn(x, nominal_dtype)
+        name_to_column[colname] = draw(mock_columns(nominal_dtype, nrows))
     return MockDataFrame(name_to_column)
+
+
+@st.composite
+def mock_single_col_dataframes(
+    draw: st.DrawFn,
+    *,
+    dtypes: Collection[NominalDtype] = set(NominalDtype),
+    allow_zero_rows: bool = True,
+) -> MockDataFrame:
+    colname = draw(utf8_strings())
+    nominal_dtype = draw(st.sampled_from(list(dtypes)))
+    min_size = 0 if allow_zero_rows else 1
+    size = draw(st.integers(min_size, 5))
+    mock_col = draw(mock_columns(nominal_dtype, size))
+    return MockDataFrame({colname: mock_col})
