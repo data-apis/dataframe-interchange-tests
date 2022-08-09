@@ -3,10 +3,10 @@ from typing import Dict
 
 import numpy as np
 import pytest
-from hypothesis import given
+from hypothesis import given, note
 from hypothesis import strategies as st
 
-from .strategies import NominalDtype
+from .strategies import NominalDtype, mock_single_col_dataframes
 from .wrappers import LibraryInfo
 
 
@@ -87,23 +87,47 @@ def test_dtype(libinfo: LibraryInfo, data: st.DataObject):
 
 
 @given(data=st.data())
-def test_describe_categorical(libinfo: LibraryInfo, data: st.DataObject):
+def test_describe_categorical_on_categorical(libinfo: LibraryInfo, data: st.DataObject):
     if NominalDtype.CATEGORY not in libinfo.supported_dtypes:
         pytest.skip(f"categorical columns not generated for {libinfo.name}")
-    # TODO: bias categorical generation
-    col, mock_col = data.draw(libinfo.columns_and_mock_columns(), label="col, mock_col")
-    if mock_col.nominal_dtype == NominalDtype.CATEGORY:
-        catinfo = col.describe_categorical
-        assert isinstance(catinfo, dict)
-        for key in ["is_ordered", "is_dictionary", "categories"]:
-            assert key in catinfo.keys()
-        assert isinstance(catinfo["is_ordered"], bool)
-        assert isinstance(catinfo["is_dictionary"], bool)
-        if not catinfo["is_dictionary"]:
-            assert catinfo["categories"] is None
-    else:
-        with pytest.raises(TypeError):
-            col.describe_categorical
+    mock_df = data.draw(
+        mock_single_col_dataframes(
+            dtypes={NominalDtype.CATEGORY},
+            allow_zero_rows=libinfo.allow_zero_rows,
+        ),
+        label="mock_df",
+    )
+    df = libinfo.mock_to_interchange(mock_df)
+    col = df.get_column(0)
+    note(f"{col=}")
+    catinfo = col.describe_categorical
+    assert isinstance(catinfo, dict)
+    for key in ["is_ordered", "is_dictionary", "categories"]:
+        assert key in catinfo.keys()
+    assert isinstance(catinfo["is_ordered"], bool)
+    assert isinstance(catinfo["is_dictionary"], bool)
+    if not catinfo["is_dictionary"]:
+        assert catinfo["categories"] is None
+
+
+@given(data=st.data())
+def test_describe_categorical_on_non_categorical(
+    libinfo: LibraryInfo, data: st.DataObject
+):
+    dtypes = libinfo.supported_dtypes
+    if NominalDtype.CATEGORY in libinfo.supported_dtypes:
+        dtypes.remove(NominalDtype.CATEGORY)
+    mock_df = data.draw(
+        mock_single_col_dataframes(
+            dtypes=dtypes, allow_zero_rows=libinfo.allow_zero_rows
+        ),
+        label="mock_df",
+    )
+    df = libinfo.mock_to_interchange(mock_df)
+    col = df.get_column(0)
+    note(f"{col=}")
+    with pytest.raises(TypeError):
+        col.describe_categorical
 
 
 @given(data=st.data())

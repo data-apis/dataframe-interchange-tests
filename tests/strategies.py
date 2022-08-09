@@ -69,7 +69,7 @@ class MockDataFrame(Mapping):
 
 
 def utf8_strings() -> st.SearchStrategy[str]:
-    return st.from_regex(r"[a-zA-Z\_]{1,8}", fullmatch=True).filter(
+    return st.from_regex(r"[a-zA-Z][a-zA-Z\_]", fullmatch=True).filter(
         lambda b: b[-1:] != "\0"
     )
 
