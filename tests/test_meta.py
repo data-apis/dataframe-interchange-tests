@@ -6,8 +6,14 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from .strategies import MockDataFrame, mock_dataframes
+from .strategies import MockDataFrame, mock_dataframes, utf8_strings
 from .wrappers import LibraryInfo
+
+
+@given(utf8_strings())
+def test_utf8_strings(string):
+    assert isinstance(string, str)
+    assert string[-1:] != "\0"
 
 
 @given(mock_dataframes())
