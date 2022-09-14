@@ -1,5 +1,5 @@
 name: Run tests
-on: [push, pull_request]
+on: [push]
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,7 +17,7 @@ jobs:
       run: |
         pip install ray git+https://github.com/modin-project/modin
         pip install vaex  # use stable as no nightly builds and long build time
-        pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple pandas --ignore-installed --no-deps
+        pip install git+https://github.com/pandas-dev/pandas --no-deps --ignore-installed  # TODO: use nightly builds again
     - name: Run tests
       run: |
         pytest tests/ -v --ci

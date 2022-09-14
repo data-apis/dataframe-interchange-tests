@@ -27,7 +27,7 @@ def test_num_columns(libinfo: LibraryInfo, data: st.DataObject):
     df = libinfo.mock_to_interchange(mock_df)
     out = df.num_columns()
     assert isinstance(out, int)
-    assert out == mock_df.num_columns()
+    assert out == mock_df.ncols
 
 
 @given(data=st.data())
@@ -40,7 +40,7 @@ def test_num_rows(libinfo: LibraryInfo, data: st.DataObject):
     out = df.num_rows()
     assume(out is not None)
     assert isinstance(out, int)
-    assert out == mock_df.num_rows()
+    assert out == mock_df.nrows
 
 
 @given(data=st.data())

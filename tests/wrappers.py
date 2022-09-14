@@ -1,13 +1,19 @@
 import re
 from copy import copy
-from typing import Any, Callable, Dict, List, NamedTuple, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Set, Tuple
 
 import numpy as np
 import pytest
 from hypothesis import strategies as st
 
-from .api import DataFrame
-from .strategies import MockDataFrame, NominalDtype, mock_dataframes
+from .api import Buffer, Column, DataFrame
+from .strategies import (
+    MockColumn,
+    MockDataFrame,
+    NominalDtype,
+    mock_dataframes,
+    mock_single_col_dataframes,
+)
 
 __all__ = ["libname_to_libinfo", "libinfo_params", "LibraryInfo"]
 
@@ -19,7 +25,7 @@ class LibraryInfo(NamedTuple):
     mock_to_toplevel: Callable[[MockDataFrame], TopLevelDataFrame]
     from_dataframe: Callable[[TopLevelDataFrame], DataFrame]
     frame_equal: Callable[[TopLevelDataFrame, DataFrame], bool]
-    exclude_dtypes: List[NominalDtype] = []
+    supported_dtypes: Set[NominalDtype] = set(NominalDtype)
     allow_zero_cols: bool = True
     allow_zero_rows: bool = True
 
@@ -30,7 +36,7 @@ class LibraryInfo(NamedTuple):
     @property
     def mock_dataframes_kwargs(self) -> Dict[str, Any]:
         return {
-            "exclude_dtypes": self.exclude_dtypes,
+            "dtypes": self.supported_dtypes,
             "allow_zero_cols": self.allow_zero_cols,
             "allow_zero_rows": self.allow_zero_rows,
         }
@@ -44,6 +50,31 @@ class LibraryInfo(NamedTuple):
     def interchange_dataframes(self) -> st.SearchStrategy[TopLevelDataFrame]:
         return self.toplevel_dataframes().map(lambda df: df.__dataframe__())
 
+    def mock_single_col_dataframes(self) -> st.SearchStrategy[MockDataFrame]:
+        return mock_single_col_dataframes(
+            dtypes=self.supported_dtypes, allow_zero_rows=self.allow_zero_rows
+        )
+
+    def columns(self) -> st.SearchStrategy[Column]:
+        return (
+            self.mock_single_col_dataframes()
+            .map(self.mock_to_interchange)
+            .map(lambda df: df.get_column(0))
+        )
+
+    def columns_and_mock_columns(self) -> st.SearchStrategy[Tuple[Column, MockColumn]]:
+        mock_df_strat = st.shared(self.mock_single_col_dataframes())
+        col_strat = mock_df_strat.map(self.mock_to_interchange).map(
+            lambda df: df.get_column(0)
+        )
+        mock_col_strat = mock_df_strat.map(
+            lambda mock_df: next(col for col in mock_df.values())
+        )
+        return st.tuples(col_strat, mock_col_strat)
+
+    def buffers(self) -> st.SearchStrategy[Buffer]:
+        return self.columns().map(lambda col: col.get_buffers()["data"][0])
+
     def __repr__(self) -> str:
         return f"LibraryInfo(<{self.name}>)"
 
@@ -56,13 +87,13 @@ libinfo_params = []
 
 try:
     import pandas as pd
-    from pandas.api.exchange import from_dataframe as pandas_from_dataframe
+    from pandas.api.interchange import from_dataframe as pandas_from_dataframe
 except ImportError as e:
     libinfo_params.append(pytest.param("pandas", marks=pytest.mark.skip(reason=e.msg)))
 else:
 
     def pandas_mock_to_toplevel(mock_df: MockDataFrame) -> pd.DataFrame:
-        if mock_df.num_columns() == 0:
+        if mock_df.ncols == 0:
             return pd.DataFrame()
         serieses = []
         for name, (array, nominal_dtype) in mock_df.items():
@@ -80,7 +111,6 @@ else:
         mock_to_toplevel=pandas_mock_to_toplevel,
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
-        exclude_dtypes=[NominalDtype.DATETIME64NS],
     )
     libinfo_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
 
@@ -96,7 +126,7 @@ except ImportError as e:
 else:
 
     def vaex_mock_to_toplevel(mock_df: MockDataFrame) -> TopLevelDataFrame:
-        if mock_df.num_columns() == 0 or mock_df.num_rows() == 0:
+        if mock_df.ncols == 0 or mock_df.nrows == 0:
             raise ValueError(f"{mock_df=} not supported by vaex")
         items: List[Tuple[str, np.ndarray]] = []
         for name, (array, _) in mock_df.items():
@@ -137,9 +167,7 @@ else:
         mock_to_toplevel=vaex_mock_to_toplevel,
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
-        exclude_dtypes=[
-            NominalDtype.DATETIME64NS,
-        ],
+        supported_dtypes=set(NominalDtype) ^ {NominalDtype.DATETIME64NS},
         # https://github.com/vaexio/vaex/issues/2094
         allow_zero_cols=False,
         allow_zero_rows=False,
@@ -154,15 +182,19 @@ else:
 try:
     import modin  # noqa: F401
 
-    # One issue modin has with pandas upstream is an outdated import of an
-    # exception class, so we try monkey-patching the class to the old path.
     try:
+        import pandas
         from pandas.core import base
         from pandas.errors import DataError
     except ImportError:
         pass
     else:
+        # One issue modin has with pandas upstream is an outdated import of an
+        # exception class, so we try monkey-patching the class to the old path.
         setattr(base, "DataError", DataError)
+        # modin also hard checks for supported pandas versions, so we
+        # monkey-patch a supported version.
+        setattr(pandas, "__version__", "1.4.3")
 
     import ray
 
@@ -180,10 +212,10 @@ except ImportError as e:
 else:
 
     def modin_mock_to_toplevel(mock_df: MockDataFrame) -> mpd.DataFrame:
-        if mock_df.num_columns() == 0:
+        if mock_df.ncols == 0:
             return mpd.DataFrame()
-        if mock_df.num_rows() == 0:
-            raise ValueError(f"{mock_df=} not supported by modin")
+        if mock_df.nrows == 0:
+            raise ValueError(f"{mock_df.nrows=} not supported by modin")
         serieses: List[mpd.Series] = []
         for name, (array, nominal_dtype) in mock_df.items():
             if nominal_dtype == NominalDtype.UTF8:
@@ -218,13 +250,12 @@ else:
         mock_to_toplevel=modin_mock_to_toplevel,
         from_dataframe=modin_from_dataframe,
         frame_equal=modin_frame_equal,
-        # https://github.com/modin-project/modin/issues/4654
-        # https://github.com/modin-project/modin/issues/4652
-        exclude_dtypes=[
-            NominalDtype.UTF8,
+        supported_dtypes=set(NominalDtype)
+        ^ {
             NominalDtype.DATETIME64NS,
-            NominalDtype.CATEGORY,
-        ],
+            # https://github.com/modin-project/modin/issues/4654
+            NominalDtype.UTF8,
+        },
         # https://github.com/modin-project/modin/issues/4643
         allow_zero_rows=False,
     )
@@ -271,7 +302,7 @@ except ImportError as e:
 else:
 
     def cudf_mock_to_toplevel(mock_df: MockDataFrame) -> cudf.DataFrame:
-        if mock_df.num_columns() == 0:
+        if mock_df.ncols == 0:
             return cudf.DataFrame()
         serieses = []
         for name, (array, nominal_dtype) in mock_df.items():
@@ -294,11 +325,12 @@ else:
         mock_to_toplevel=cudf_mock_to_toplevel,
         from_dataframe=cudf_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
-        exclude_dtypes=[
+        supported_dtypes=set(NominalDtype)
+        ^ {
             NominalDtype.DATETIME64NS,
             # https://github.com/rapidsai/cudf/issues/11308
             NominalDtype.UTF8,
-        ],
+        },
     )
     libinfo_params.append(pytest.param(cudf_libinfo, id=cudf_libinfo.name))
 

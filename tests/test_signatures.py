@@ -3,7 +3,7 @@ from types import FunctionType
 from typing import Callable  # See https://github.com/python/mypy/issues/6864
 
 import pytest
-from hypothesis import assume, given, note, settings
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from .api import *
@@ -108,10 +108,7 @@ for _, stub in getmembers(Column, predicate=isfunction):
 @given(data=st.data())
 @settings(max_examples=1)
 def test_column_method(libinfo: LibraryInfo, stub: FunctionType, data: st.DataObject):
-    df = data.draw(libinfo.interchange_dataframes(), label="df")
-    assume(df.num_columns() > 0)
-    col = df.get_column(0)
-    note(f"{col=}")
+    col = data.draw(libinfo.columns(), label="col")
     assert hasattr(col, stub.__name__)
     method = getattr(col, stub.__name__)
     assert isinstance(method, Callable)  # type: ignore
@@ -128,13 +125,7 @@ for _, stub in getmembers(Buffer, predicate=isfunction):
 @given(data=st.data())
 @settings(max_examples=1)
 def test_buffer_method(libinfo: LibraryInfo, stub: FunctionType, data: st.DataObject):
-    df = data.draw(libinfo.interchange_dataframes(), label="df")
-    assume(df.num_columns() > 0)
-    col = df.get_column(0)
-    note(f"{col=}")
-    bufinfo = col.get_buffers()
-    buf, _ = bufinfo["data"]
-    note(f"{buf=}")
+    buf = data.draw(libinfo.buffers(), label="buf")
     assert hasattr(buf, stub.__name__)
     method = getattr(buf, stub.__name__)
     assert isinstance(method, Callable)  # type: ignore

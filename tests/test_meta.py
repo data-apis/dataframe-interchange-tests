@@ -6,8 +6,20 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from .strategies import MockDataFrame, mock_dataframes
-from .wrappers import LibraryInfo
+from .strategies import MockDataFrame, mock_dataframes, utf8_strings
+from .wrappers import LibraryInfo, libname_to_libinfo
+
+
+def test_ci_has_correct_library_params(pytestconfig):
+    if not pytestconfig.getoption("--ci"):
+        pytest.skip("only intended for --ci runs")
+    assert set(libname_to_libinfo.keys()) == {"pandas", "vaex", "modin"}
+
+
+@given(utf8_strings())
+def test_utf8_strings(string):
+    assert isinstance(string, str)
+    assert string[-1:] != "\0"
 
 
 @given(mock_dataframes())
@@ -16,7 +28,16 @@ def test_mock_dataframes(mock_df):
 
 
 @pytest.mark.parametrize(
-    "func_name", ["mock_dataframes", "toplevel_dataframes", "interchange_dataframes"]
+    "func_name",
+    [
+        "mock_dataframes",
+        "toplevel_dataframes",
+        "interchange_dataframes",
+        "mock_single_col_dataframes",
+        "columns",
+        "columns_and_mock_columns",
+        "buffers",
+    ],
 )
 @given(data=st.data())
 def test_strategy(libinfo: LibraryInfo, func_name: str, data: st.DataObject):
