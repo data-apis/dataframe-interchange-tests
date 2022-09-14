@@ -7,7 +7,13 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from .strategies import MockDataFrame, mock_dataframes, utf8_strings
-from .wrappers import LibraryInfo
+from .wrappers import LibraryInfo, libname_to_libinfo
+
+
+def test_ci_has_correct_library_params(pytestconfig):
+    if not pytestconfig.getoption("--ci"):
+        pytest.skip("only intended for --ci runs")
+    assert set(libname_to_libinfo.keys()) == {"pandas", "vaex", "modin"}
 
 
 @given(utf8_strings())
