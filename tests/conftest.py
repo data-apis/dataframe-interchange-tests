@@ -45,29 +45,31 @@ ci_xfail_ids = [
     "test_signatures.py::test_dataframe_method[vaex-__dataframe__]",
     "test_dataframe_object.py::test_dunder_dataframe[cudf]",
     "test_signatures.py::test_dataframe_method[cudf-__dataframe__]",
+    # https://github.com/vaexio/vaex/pull/2150
+    "tests/test_signatures.py::test_column_method[vaex-size]",
     # https://github.com/rapidsai/cudf/issues/11320
     "test_signatures.py::test_buffer_method[cudf-__dlpack__]",
     "test_signatures.py::test_buffer_method[cudf-__dlpack_device__]",
     # https://github.com/vaexio/vaex/issues/2083
     # https://github.com/vaexio/vaex/issues/2093
     # https://github.com/vaexio/vaex/issues/2113
+    # https://github.com/vaexio/vaex/pull/2150
     "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-modin]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
-    # https://github.com/vaexio/vaex/issues/2093
+    # https://github.com/vaexio/vaex/pull/2150
     "test_column_object.py::test_size[vaex]",
     # https://github.com/rapidsai/cudf/issues/11389
     "test_column_object.py::test_dtype[cudf]",
-    # recent spec change https://github.com/data-apis/dataframe-api/pull/74
-    "test_column_object.py::test_describe_categorical",
+    # https://github.com/vaexio/vaex/pull/2150
+    "test_column_object.py::test_describe_categorical_on_categorical[vaex]",
     # Raises RuntimeError, which is technically correct, but the spec will
     # require TypeError soon.
     # See https://github.com/data-apis/dataframe-api/pull/74
     "test_column_object.py::test_describe_categorical[modin]",
     # https://github.com/vaexio/vaex/issues/2113
     "test_column_object.py::test_describe_categorical[vaex]",
-    # https://github.com/pandas-dev/pandas/issues/47789
-    "test_column_object.py::test_null_count[pandas]",
     # https://github.com/modin-project/modin/issues/4687
     "test_column_object.py::test_null_count[modin]",
     # https://github.com/vaexio/vaex/issues/2121
