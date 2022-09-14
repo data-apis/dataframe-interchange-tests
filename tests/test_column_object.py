@@ -132,13 +132,19 @@ def test_describe_categorical_on_non_categorical(
 
 @given(data=st.data())
 def test_describe_null(libinfo: LibraryInfo, data: st.DataObject):
-    col = data.draw(libinfo.columns(), label="col")
+    col, mock_col = data.draw(libinfo.columns_and_mock_columns(), label="col, mock_col")
     nullinfo = col.describe_null
     assert isinstance(nullinfo, tuple)
     assert len(nullinfo) == 2
     kind, value = nullinfo
     assert isinstance(kind, int)
     assert kind in [0, 1, 2, 3, 4]
+    if mock_col.nominal_dtype == NominalDtype.DATETIME64NS:
+        # The spec previously treated kind=1 as NaNs AND NaTs, but has since
+        # been updated to exclude NaTs. This means datetime columns should
+        # never have nulls represented as kind=1, as NaNs are a floating-point
+        # concept. See https://github.com/data-apis/dataframe-api/issues/64
+        assert kind != 1
     if kind in [0, 1]:  # noll-nullable or NaN
         assert value is None
     elif kind in [3, 4]:  # bit or byte mask
