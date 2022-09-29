@@ -39,12 +39,6 @@ def pytest_configure(config):
 
 
 ci_xfail_ids = [
-    # vaex's and cudf's interchange dataframe doesn't have __dataframe__()
-    # See https://github.com/data-apis/dataframe-api/issues/80
-    "test_dataframe_object.py::test_dunder_dataframe[vaex]",
-    "test_signatures.py::test_dataframe_method[vaex-__dataframe__]",
-    "test_dataframe_object.py::test_dunder_dataframe[cudf]",
-    "test_signatures.py::test_dataframe_method[cudf-__dataframe__]",
     # https://github.com/vaexio/vaex/pull/2150
     "tests/test_signatures.py::test_column_method[vaex-size]",
     # https://github.com/rapidsai/cudf/issues/11320
@@ -91,7 +85,7 @@ def pytest_collection_modifyitems(config, items):
     if config.getoption("--ci"):
         for item in items:
             if any(id_ in item.nodeid for id_ in ci_xfail_ids):
-                item.add_marker(pytest.mark.xfail())
+                item.add_marker(pytest.mark.xfail(strict=True))
             elif any(id_ in item.nodeid for id_ in ci_skip_ids):
                 item.add_marker(pytest.mark.skip("flaky"))
             elif r_cudf_roundtrip.search(item.nodeid):
