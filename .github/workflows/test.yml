@@ -1,5 +1,8 @@
 name: Run tests
-on: [push]
+on:
+  push: null
+  schedule:
+    - cron: '0 0 * * 0'  # i.e. every week
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -10,6 +13,9 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.8
+    - name: Upgrade pip
+      run: |
+        pip install pip --upgrade
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
@@ -17,7 +23,7 @@ jobs:
       run: |
         pip install ray git+https://github.com/modin-project/modin
         pip install vaex  # use stable as no nightly builds and long build time
-        pip install pandas --no-deps --ignore-installed  # use stable as erroneous nightly builds and long build time
+        pip install --pre --extra-index https://pypi.anaconda.org/scipy-wheels-nightly/simple pandas --ignore-installed --no-deps
     - name: Run tests
       run: |
         pytest tests/ -v --ci

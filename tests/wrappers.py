@@ -1,6 +1,7 @@
 import re
 from copy import copy
 from typing import Any, Callable, Dict, List, NamedTuple, Set, Tuple
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -79,7 +80,8 @@ class LibraryInfo(NamedTuple):
         return f"LibraryInfo(<{self.name}>)"
 
 
-libinfo_params = []
+unskipped_params = []
+skipped_params = []
 
 
 # pandas
@@ -89,7 +91,9 @@ try:
     import pandas as pd
     from pandas.api.interchange import from_dataframe as pandas_from_dataframe
 except ImportError as e:
-    libinfo_params.append(pytest.param("pandas", marks=pytest.mark.skip(reason=e.msg)))
+    skipped_params.append(
+        pytest.param(None, id="pandas", marks=pytest.mark.skip(reason=e.msg))
+    )
 else:
 
     def pandas_mock_to_toplevel(mock_df: MockDataFrame) -> pd.DataFrame:
@@ -112,7 +116,7 @@ else:
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
     )
-    libinfo_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
+    unskipped_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
 
 
 # vaex
@@ -122,7 +126,9 @@ try:
     import vaex
     from vaex.dataframe_protocol import from_dataframe_to_vaex as vaex_from_dataframe
 except ImportError as e:
-    libinfo_params.append(pytest.param("vaex", marks=pytest.mark.skip(reason=e.msg)))
+    skipped_params.append(
+        pytest.param(None, id="modin", marks=pytest.mark.skip(reason=e.msg))
+    )
 else:
 
     def vaex_mock_to_toplevel(mock_df: MockDataFrame) -> TopLevelDataFrame:
@@ -172,7 +178,7 @@ else:
         allow_zero_cols=False,
         allow_zero_rows=False,
     )
-    libinfo_params.append(pytest.param(vaex_libinfo, id=vaex_libinfo.name))
+    unskipped_params.append(pytest.param(vaex_libinfo, id=vaex_libinfo.name))
 
 
 # modin
@@ -180,22 +186,16 @@ else:
 
 
 try:
+    # ethereal hacks! ----------------------------------------------------------
+    import pandas
+
+    setattr(pandas, "__getattr__", MagicMock())
+    if not hasattr(pandas.DataFrame, "mad"):
+        setattr(pandas.DataFrame, "mad", MagicMock())
+    setattr(pandas.core.indexing, "__getattr__", MagicMock())
+    # ------------------------------------------------------------ end of hacks.
+
     import modin  # noqa: F401
-
-    try:
-        import pandas
-        from pandas.core import base
-        from pandas.errors import DataError
-    except ImportError:
-        pass
-    else:
-        # One issue modin has with pandas upstream is an outdated import of an
-        # exception class, so we try monkey-patching the class to the old path.
-        setattr(base, "DataError", DataError)
-        # modin also hard checks for supported pandas versions, so we
-        # monkey-patch a supported version.
-        setattr(pandas, "__version__", "1.4.3")
-
     import ray
 
     # Without local_mode=True, ray does not use our monkey-patched pandas
@@ -208,7 +208,9 @@ try:
     from modin import pandas as mpd
     from modin.pandas.utils import from_dataframe as modin_from_dataframe
 except ImportError as e:
-    libinfo_params.append(pytest.param("modin", marks=pytest.mark.skip(reason=e.msg)))
+    skipped_params.append(
+        pytest.param(None, id="modin", marks=pytest.mark.skip(reason=e.msg))
+    )
 else:
 
     def modin_mock_to_toplevel(mock_df: MockDataFrame) -> mpd.DataFrame:
@@ -259,7 +261,7 @@ else:
         # https://github.com/modin-project/modin/issues/4643
         allow_zero_rows=False,
     )
-    libinfo_params.append(pytest.param(modin_libinfo, id=modin_libinfo.name))
+    unskipped_params.append(pytest.param(modin_libinfo, id=modin_libinfo.name))
 
 
 # cuDF
@@ -267,7 +269,7 @@ else:
 
 
 try:
-    # cudf has a few issues with upstream pandas that we "fix" with a few hacks
+    # ethereal hacks! ----------------------------------------------------------
     try:
         import pandas
         import pyarrow
@@ -294,11 +296,14 @@ try:
         setattr(pyarrow, "register_extension_type", register_extension_type)
         setattr(datetimes, "_guess_datetime_format", guess_datetime_format)
         setattr(pandas, "__version__", "1.4.3")
+    # ------------------------------------------------------------ end of hacks.
 
     import cudf
     from cudf.core.df_protocol import from_dataframe as cudf_from_dataframe
 except ImportError as e:
-    libinfo_params.append(pytest.param("cudf", marks=pytest.mark.skip(reason=e.msg)))
+    skipped_params.append(
+        pytest.param(None, id="cudf", marks=pytest.mark.skip(reason=e.msg))
+    )
 else:
 
     def cudf_mock_to_toplevel(mock_df: MockDataFrame) -> cudf.DataFrame:
@@ -332,8 +337,11 @@ else:
             NominalDtype.UTF8,
         },
     )
-    libinfo_params.append(pytest.param(cudf_libinfo, id=cudf_libinfo.name))
+    unskipped_params.append(pytest.param(cudf_libinfo, id=cudf_libinfo.name))
 
+libinfo_params = skipped_params + unskipped_params
+ids = [p.id for p in libinfo_params]
+assert len(set(ids)) == len(ids), f"ids: {ids}"  # sanity check
 
 libname_to_libinfo: Dict[str, LibraryInfo] = {}
 for param in libinfo_params:
@@ -341,3 +349,12 @@ for param in libinfo_params:
         libinfo = param.values[0]
         assert isinstance(libinfo, LibraryInfo)  # for mypy
         libname_to_libinfo[libinfo.name] = libinfo
+
+
+if __name__ == "__main__":
+    print(f"Wrapped libraries: {[p.id for p in unskipped_params]}")
+    if len(skipped_params) > 0:
+        print("Skipped libraries:")
+        for p in skipped_params:
+            m = next(m for m in p.marks if m.name == "skip")
+            print(f"    {p.id}; reason={m.kwargs['reason']}")

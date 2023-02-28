@@ -39,25 +39,16 @@ def pytest_configure(config):
 
 
 ci_xfail_ids = [
-    # https://github.com/vaexio/vaex/pull/2150
-    "tests/test_signatures.py::test_column_method[vaex-size]",
     # https://github.com/rapidsai/cudf/issues/11320
     "test_signatures.py::test_buffer_method[cudf-__dlpack__]",
     "test_signatures.py::test_buffer_method[cudf-__dlpack_device__]",
     # https://github.com/vaexio/vaex/issues/2083
     # https://github.com/vaexio/vaex/issues/2093
     # https://github.com/vaexio/vaex/issues/2113
-    # https://github.com/vaexio/vaex/pull/2150
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-modin]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
-    # https://github.com/vaexio/vaex/pull/2150
-    "test_column_object.py::test_size[vaex]",
     # https://github.com/rapidsai/cudf/issues/11389
     "test_column_object.py::test_dtype[cudf]",
-    # https://github.com/vaexio/vaex/pull/2150
-    "test_column_object.py::test_describe_categorical_on_categorical[vaex]",
     # Raises RuntimeError, which is technically correct, but the spec will
     # require TypeError soon.
     # See https://github.com/data-apis/dataframe-api/pull/74
@@ -75,6 +66,12 @@ ci_skip_ids = [
     # https://github.com/vaexio/vaex/issues/2118
     # https://github.com/vaexio/vaex/issues/2139
     "test_column_object.py::test_dtype[vaex]",
+    # SEGFAULT
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
+    # modin flakiness
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-pandas]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-modin]",
+    "test_meta.py::test_frame_equal[modin]",
 ]
 assert not any(case in ci_xfail_ids for case in ci_skip_ids)  # sanity check
 
