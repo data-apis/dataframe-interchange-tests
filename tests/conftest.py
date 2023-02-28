@@ -48,7 +48,6 @@ ci_xfail_ids = [
     # https://github.com/vaexio/vaex/issues/2093
     # https://github.com/vaexio/vaex/issues/2113
     # https://github.com/vaexio/vaex/pull/2150
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-modin]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
@@ -75,6 +74,8 @@ ci_skip_ids = [
     # https://github.com/vaexio/vaex/issues/2118
     # https://github.com/vaexio/vaex/issues/2139
     "test_column_object.py::test_dtype[vaex]",
+    # SEGFAULT
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-vaex]",
 ]
 assert not any(case in ci_xfail_ids for case in ci_skip_ids)  # sanity check
 
