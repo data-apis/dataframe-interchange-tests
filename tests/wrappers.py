@@ -1,6 +1,7 @@
 import re
 from copy import copy
 from typing import Any, Callable, Dict, List, NamedTuple, Set, Tuple
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -185,22 +186,16 @@ else:
 
 
 try:
+    # ethereal hacks! ----------------------------------------------------------
+    import pandas
+
+    setattr(pandas, "__getattr__", MagicMock())
+    if not hasattr(pandas.DataFrame, "mad"):
+        setattr(pandas.DataFrame, "mad", MagicMock())
+    setattr(pandas.core.indexing, "__getattr__", MagicMock())
+    # ------------------------------------------------------------ end of hacks.
+
     import modin  # noqa: F401
-
-    try:
-        import pandas
-        from pandas.core import base
-        from pandas.errors import DataError
-    except ImportError:
-        pass
-    else:
-        # One issue modin has with pandas upstream is an outdated import of an
-        # exception class, so we try monkey-patching the class to the old path.
-        setattr(base, "DataError", DataError)
-        # modin also hard checks for supported pandas versions, so we
-        # monkey-patch a supported version.
-        setattr(pandas, "__version__", "1.5.3")
-
     import ray
 
     # Without local_mode=True, ray does not use our monkey-patched pandas
@@ -274,7 +269,7 @@ else:
 
 
 try:
-    # cudf has a few issues with upstream pandas that we "fix" with a few hacks
+    # ethereal hacks! ----------------------------------------------------------
     try:
         import pandas
         import pyarrow
@@ -301,6 +296,7 @@ try:
         setattr(pyarrow, "register_extension_type", register_extension_type)
         setattr(datetimes, "_guess_datetime_format", guess_datetime_format)
         setattr(pandas, "__version__", "1.4.3")
+    # ------------------------------------------------------------ end of hacks.
 
     import cudf
     from cudf.core.df_protocol import from_dataframe as cudf_from_dataframe
