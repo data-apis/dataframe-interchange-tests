@@ -130,7 +130,7 @@ else:
         mock_to_toplevel=mock_to_pd_df,
         from_dataframe=pandas_from_dataframe,
         frame_equal=pandas_frame_equal,
-        # https://github.com/pandas-dev/pandas/issues/53155
+        # ¯\_(ツ)_/¯
         allow_zero_cols=False,
         allow_zero_rows=False,
     )
@@ -279,6 +279,9 @@ else:
             # https://github.com/modin-project/modin/issues/4654
             NominalDtype.UTF8,
         },
+        # https://github.com/pandas-dev/pandas/issues/53155
+        # (changes have yet to propagate)
+        allow_zero_cols=False,
         # https://github.com/modin-project/modin/issues/4643
         allow_zero_rows=False,
     )
