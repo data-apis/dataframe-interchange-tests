@@ -1,4 +1,5 @@
 import re
+import string
 from copy import copy
 from typing import Any, Callable, Dict, List, NamedTuple, Set, Tuple
 from unittest.mock import MagicMock
@@ -339,6 +340,55 @@ else:
     )
     unskipped_params.append(pytest.param(cudf_libinfo, id=cudf_libinfo.name))
 
+
+# Arrow
+# -------
+
+
+try:
+    import pyarrow as pa
+    from pyarrow.interchange import from_dataframe as pyarrow_from_dataframe
+except ImportError as e:
+    skipped_params.append(
+        pytest.param(None, id="pyarrow.Table", marks=pytest.mark.skip(reason=e.msg))
+    )
+    skipped_params.append(
+        pytest.param(
+            None, id="pyarrow<RecordBatch>", marks=pytest.mark.skip(reason=e.msg)
+        )
+    )
+else:
+    dictionary = pa.array(string.ascii_lowercase, type=pa.string())
+
+    def pyarrow_mock_to_toplevel_table(mock_df: MockDataFrame) -> pa.Table:
+        # if mock_df.ncols == 0:
+        #     return pd.DataFrame()
+        arrays = []
+        for (array, nominal_dtype) in mock_df.values():
+            if nominal_dtype == NominalDtype.CATEGORY:
+                indices_dtype = pa.from_numpy_dtype(array.dtype)
+                indices = pa.array(array, type=indices_dtype)
+                a = pa.DictionaryArray.from_arrays(indices, dictionary)
+            else:
+                a = pa.array(array)
+            arrays.append(a)
+        table = pa.table(arrays, list(mock_df.keys()))
+        return table
+
+    pyarrow_libinfo = LibraryInfo(
+        name="pyarrow.Table",
+        mock_to_toplevel=pyarrow_mock_to_toplevel_table,
+        from_dataframe=pyarrow_from_dataframe,
+        frame_equal=lambda t1, t2: t1.equals(t2),
+    )
+    unskipped_params.append(pytest.param(pyarrow_libinfo, id=pyarrow_libinfo.name))
+
+    # TODO: pyarrow.RecordBatch
+
+
+# ------------------------------------------------------- End wrapping libraries
+
+
 libinfo_params = skipped_params + unskipped_params
 ids = [p.id for p in libinfo_params]
 assert len(set(ids)) == len(ids), f"ids: {ids}"  # sanity check
@@ -349,7 +399,6 @@ for param in libinfo_params:
         libinfo = param.values[0]
         assert isinstance(libinfo, LibraryInfo)  # for mypy
         libname_to_libinfo[libinfo.name] = libinfo
-
 
 if __name__ == "__main__":
     print(f"Wrapped libraries: {[p.id for p in unskipped_params]}")

@@ -57,6 +57,8 @@ ci_xfail_ids = [
     "test_column_object.py::test_describe_categorical[vaex]",
     # https://github.com/modin-project/modin/issues/4687
     "test_column_object.py::test_null_count[modin]",
+    # https://github.com/apache/arrow/issues/34774
+    "test_column_object.py::test_null_count[pyarrow.Table]",
     # https://github.com/vaexio/vaex/issues/2121
     "test_column_object.py::test_get_chunks[vaex]",
 ]

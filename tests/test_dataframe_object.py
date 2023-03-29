@@ -119,11 +119,16 @@ def test_get_chunks(libinfo: LibraryInfo, data: st.DataObject):
     df = data.draw(libinfo.interchange_dataframes(), label="df")
     _n_chunks = df.num_chunks()
     assert isinstance(_n_chunks, int)  # sanity check
-    n_chunks = data.draw(
-        st.none() | st.integers(1, 2).map(lambda n: n * _n_chunks), label="n_chunks"
-    )
-    if n_chunks is None and not data.draw(st.booleans(), label="pass n_chunks"):
-        args = []
+    if _n_chunks == 0:
+        df.get_chunks()
     else:
-        args = [n_chunks]
-    df.get_chunks(*args)
+        assert _n_chunks >= 1  # sanity check
+        n_chunks_strat = st.sampled_from([None, 1])
+        if _n_chunks > 1:
+            n_chunks_strat |= st.integers(1, 2).map(lambda n: n * _n_chunks)
+        n_chunks = data.draw(n_chunks_strat, label="n_chunks")
+        if n_chunks is None and not data.draw(st.booleans(), label="pass n_chunks"):
+            args = []
+        else:
+            args = [n_chunks]
+        df.get_chunks(*args)
