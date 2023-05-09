@@ -116,6 +116,9 @@ else:
         mock_to_toplevel=pandas_mock_to_toplevel,
         from_dataframe=pandas_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),
+        # https://github.com/pandas-dev/pandas/issues/53155
+        allow_zero_cols=False,
+        allow_zero_rows=False,
     )
     unskipped_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
 

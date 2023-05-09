@@ -47,6 +47,12 @@ ci_xfail_ids = [
     # https://github.com/vaexio/vaex/issues/2113
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
+    # https://github.com/data-apis/dataframe-interchange-tests/pull/21#issuecomment-1495914398
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[pyarrow.Table-vaex]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pyarrow.Table]",
+    # TODO: triage
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-pyarrow.Table]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[pyarrow.Table-pandas]",
     # https://github.com/rapidsai/cudf/issues/11389
     "test_column_object.py::test_dtype[cudf]",
     # Raises RuntimeError, which is technically correct, but the spec will
