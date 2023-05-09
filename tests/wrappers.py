@@ -111,11 +111,24 @@ else:
         df = pd.concat(serieses, axis=1)
         return df
 
+    def pandas_frame_equal(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
+        # pandas fails equality when an object and string column equal with the
+        # same values. We don't really care about this, so we normalise any
+        # string columns as object columns.
+        for col in df1.columns:
+            if df1[col].dtype == pd.StringDtype():
+                df1[col] = df1[col].astype(object)
+        for col in df2.columns:
+            if df2[col].dtype == pd.StringDtype():
+                df2[col] = df2[col].astype(object)
+
+        return df1.equals(df2)
+
     pandas_libinfo = LibraryInfo(
         name="pandas",
         mock_to_toplevel=pandas_mock_to_toplevel,
         from_dataframe=pandas_from_dataframe,
-        frame_equal=lambda df1, df2: df1.equals(df2),
+        frame_equal=pandas_frame_equal,
         # https://github.com/pandas-dev/pandas/issues/53155
         allow_zero_cols=False,
         allow_zero_rows=False,

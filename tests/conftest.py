@@ -51,7 +51,6 @@ ci_xfail_ids = [
     "test_from_dataframe.py::test_from_dataframe_roundtrip[pyarrow.Table-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pyarrow.Table]",
     # TODO: triage
-    "test_from_dataframe.py::test_from_dataframe_roundtrip[pandas-pyarrow.Table]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[pyarrow.Table-pandas]",
     # https://github.com/rapidsai/cudf/issues/11389
     "test_column_object.py::test_dtype[cudf]",

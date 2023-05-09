@@ -50,3 +50,17 @@ def test_strategy(libinfo: LibraryInfo, func_name: str, data: st.DataObject):
 def test_frame_equal(libinfo: LibraryInfo, data: st.DataObject):
     df = data.draw(libinfo.toplevel_dataframes(), label="df")
     assert libinfo.frame_equal(df, df)
+
+
+def test_pandas_frame_equal_string_object_columns():
+    try:
+        import pandas as pd
+
+        libinfo = libname_to_libinfo["pandas"]
+    except (KeyError, ImportError) as e:
+        pytest.skip(e.msg)
+    df1 = pd.DataFrame({"foo": ["A"]})
+    assert df1["foo"].dtype == object  # sanity check
+    df2 = pd.DataFrame({"foo": pd.Series(["A"], dtype=pd.StringDtype())})
+    assert libinfo.frame_equal(df1, df2)
+    assert libinfo.frame_equal(df2, df1)
