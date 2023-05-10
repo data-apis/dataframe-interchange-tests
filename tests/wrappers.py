@@ -364,6 +364,7 @@ else:
 try:
     import pyarrow as pa
     from pyarrow.interchange import from_dataframe as pyarrow_from_dataframe
+    from pyarrow.types import is_dictionary, is_string
 except ImportError as e:
     skipped_params.append(
         pytest.param(None, id="pyarrow.Table", marks=pytest.mark.skip(reason=e.msg))
@@ -398,15 +399,19 @@ else:
         new_df1_pydict = {}
         for col in df1.column_names:
             a = df1[col]
-            if a.type == pa.string():
+            if is_string(a.type):
                 a = a.cast(pa.large_string())
+            elif is_dictionary(a.type) and is_string(a.type.value_type):
+                a = a.cast(pa.dictionary(a.type.index_type, pa.large_string()))
             new_df1_pydict[col] = a
         df1 = pa.Table.from_pydict(new_df1_pydict)
         new_df2_pydict = {}
         for col in df2.column_names:
             a = df2[col]
-            if a.type == pa.string():
+            if is_string(a.type):
                 a = a.cast(pa.large_string())
+            elif is_dictionary(a.type) and is_string(a.type.value_type):
+                a = a.cast(pa.dictionary(a.type.index_type, pa.large_string()))
             new_df2_pydict[col] = a
         df2 = pa.Table.from_pydict(new_df2_pydict)
 

@@ -73,9 +73,20 @@ def test_pyarrow_frame_equal_string_columns():
         libinfo = libname_to_libinfo["pyarrow.Table"]
     except (KeyError, ImportError) as e:
         pytest.skip(e.msg)
-    df1 = pa.Table.from_arrays([pa.array(["bar"], type=pa.string())], names=["foo"])
-    df2 = pa.Table.from_arrays(
-        [pa.array(["bar"], type=pa.large_string())], names=["foo"]
+
+    df1 = pa.Table.from_pydict(
+        {
+            "a": pa.array(["foo"]),
+            "b": pa.DictionaryArray.from_arrays(pa.array([0]), pa.array(["bar"])),
+        }
+    )
+    df2 = pa.Table.from_pydict(
+        {
+            "a": pa.array(["foo"], type=pa.large_string()),
+            "b": pa.DictionaryArray.from_arrays(
+                pa.array([0]), pa.array(["bar"], type=pa.large_string())
+            ),
+        }
     )
     assert libinfo.frame_equal(df1, df2)
     assert libinfo.frame_equal(df2, df1)
