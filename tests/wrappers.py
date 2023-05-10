@@ -391,11 +391,32 @@ else:
         table = pa.table(arrays, list(mock_df.keys()))
         return table
 
+    def pyarrow_frame_equal(df1: pa.Table, df2: pa.Table):
+        # Arrow fails equality when a normal-string and large-string column
+        # equal with the same values. We don't really care about this, so we
+        # normalise any normal-string columns as large-string columns.
+        new_df1_pydict = {}
+        for col in df1.column_names:
+            a = df1[col]
+            if a.type == pa.string():
+                a = a.cast(pa.large_string())
+            new_df1_pydict[col] = a
+        df1 = pa.Table.from_pydict(new_df1_pydict)
+        new_df2_pydict = {}
+        for col in df2.column_names:
+            a = df2[col]
+            if a.type == pa.string():
+                a = a.cast(pa.large_string())
+            new_df2_pydict[col] = a
+        df2 = pa.Table.from_pydict(new_df2_pydict)
+
+        return df1.equals(df2)
+
     pyarrow_libinfo = LibraryInfo(
         name="pyarrow.Table",
         mock_to_toplevel=pyarrow_mock_to_toplevel_table,
         from_dataframe=pyarrow_from_dataframe,
-        frame_equal=lambda t1, t2: t1.equals(t2),
+        frame_equal=pyarrow_frame_equal,
     )
     unskipped_params.append(pytest.param(pyarrow_libinfo, id=pyarrow_libinfo.name))
 

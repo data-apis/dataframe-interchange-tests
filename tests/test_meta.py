@@ -59,8 +59,23 @@ def test_pandas_frame_equal_string_object_columns():
         libinfo = libname_to_libinfo["pandas"]
     except (KeyError, ImportError) as e:
         pytest.skip(e.msg)
-    df1 = pd.DataFrame({"foo": ["A"]})
+    df1 = pd.DataFrame({"foo": ["bar"]})
     assert df1["foo"].dtype == object  # sanity check
-    df2 = pd.DataFrame({"foo": pd.Series(["A"], dtype=pd.StringDtype())})
+    df2 = pd.DataFrame({"foo": pd.Series(["bar"], dtype=pd.StringDtype())})
+    assert libinfo.frame_equal(df1, df2)
+    assert libinfo.frame_equal(df2, df1)
+
+
+def test_pyarrow_frame_equal_string_columns():
+    try:
+        import pyarrow as pa
+
+        libinfo = libname_to_libinfo["pyarrow.Table"]
+    except (KeyError, ImportError) as e:
+        pytest.skip(e.msg)
+    df1 = pa.Table.from_arrays([pa.array(["bar"], type=pa.string())], names=["foo"])
+    df2 = pa.Table.from_arrays(
+        [pa.array(["bar"], type=pa.large_string())], names=["foo"]
+    )
     assert libinfo.frame_equal(df1, df2)
     assert libinfo.frame_equal(df2, df1)
