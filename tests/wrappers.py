@@ -97,7 +97,7 @@ except ImportError as e:
     )
 else:
 
-    def pandas_mock_to_toplevel(mock_df: MockDataFrame) -> pd.DataFrame:
+    def mock_to_pd_df(mock_df: MockDataFrame) -> pd.DataFrame:
         if mock_df.ncols == 0:
             return pd.DataFrame()
         serieses = []
@@ -126,7 +126,7 @@ else:
 
     pandas_libinfo = LibraryInfo(
         name="pandas",
-        mock_to_toplevel=pandas_mock_to_toplevel,
+        mock_to_toplevel=mock_to_pd_df,
         from_dataframe=pandas_from_dataframe,
         frame_equal=pandas_frame_equal,
         # https://github.com/pandas-dev/pandas/issues/53155
@@ -148,7 +148,7 @@ except ImportError as e:
     )
 else:
 
-    def vaex_mock_to_toplevel(mock_df: MockDataFrame) -> TopLevelDataFrame:
+    def mock_to_vaex_df(mock_df: MockDataFrame) -> TopLevelDataFrame:
         if mock_df.ncols == 0 or mock_df.nrows == 0:
             raise ValueError(f"{mock_df=} not supported by vaex")
         items: List[Tuple[str, np.ndarray]] = []
@@ -187,7 +187,7 @@ else:
 
     vaex_libinfo = LibraryInfo(
         name="vaex",
-        mock_to_toplevel=vaex_mock_to_toplevel,
+        mock_to_toplevel=mock_to_vaex_df,
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
         supported_dtypes=set(NominalDtype) ^ {NominalDtype.DATETIME64NS},
@@ -230,7 +230,7 @@ except ImportError as e:
     )
 else:
 
-    def modin_mock_to_toplevel(mock_df: MockDataFrame) -> mpd.DataFrame:
+    def mock_to_modin_df(mock_df: MockDataFrame) -> mpd.DataFrame:
         if mock_df.ncols == 0:
             return mpd.DataFrame()
         if mock_df.nrows == 0:
@@ -266,7 +266,7 @@ else:
 
     modin_libinfo = LibraryInfo(
         name="modin",
-        mock_to_toplevel=modin_mock_to_toplevel,
+        mock_to_toplevel=mock_to_modin_df,
         from_dataframe=modin_from_dataframe,
         frame_equal=modin_frame_equal,
         supported_dtypes=set(NominalDtype)
@@ -323,7 +323,7 @@ except ImportError as e:
     )
 else:
 
-    def cudf_mock_to_toplevel(mock_df: MockDataFrame) -> cudf.DataFrame:
+    def mock_to_cudf_df(mock_df: MockDataFrame) -> cudf.DataFrame:
         if mock_df.ncols == 0:
             return cudf.DataFrame()
         serieses = []
@@ -344,7 +344,7 @@ else:
 
     cudf_libinfo = LibraryInfo(
         name="cudf",
-        mock_to_toplevel=cudf_mock_to_toplevel,
+        mock_to_toplevel=mock_to_cudf_df,
         from_dataframe=cudf_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
         supported_dtypes=set(NominalDtype)
@@ -371,15 +371,13 @@ except ImportError as e:
     )
     skipped_params.append(
         pytest.param(
-            None, id="pyarrow<RecordBatch>", marks=pytest.mark.skip(reason=e.msg)
+            None, id="pyarrow.RecordBatch", marks=pytest.mark.skip(reason=e.msg)
         )
     )
 else:
     dictionary = pa.array(string.ascii_lowercase, type=pa.string())
 
-    def pyarrow_mock_to_toplevel_table(mock_df: MockDataFrame) -> pa.Table:
-        # if mock_df.ncols == 0:
-        #     return pd.DataFrame()
+    def mock_to_pa_batch(mock_df: MockDataFrame) -> pa.RecordBatch:
         arrays = []
         for (array, nominal_dtype) in mock_df.values():
             if nominal_dtype == NominalDtype.CATEGORY:
@@ -389,15 +387,20 @@ else:
             else:
                 a = pa.array(array)
             arrays.append(a)
-        table = pa.table(arrays, list(mock_df.keys()))
+        batch = pa.record_batch(arrays, list(mock_df.keys()))
+        return batch
+
+    def mock_to_pa_table(mock_df: MockDataFrame) -> pa.Table:
+        batch = mock_to_pa_batch(mock_df)
+        table = pa.Table.from_batches([batch])
         return table
 
-    def pyarrow_frame_equal(df1: pa.Table, df2: pa.Table):
+    def pyarrow_table_equal(df1: pa.Table, df2: pa.Table) -> bool:
         # Arrow fails equality when a normal-string and large-string column
         # equal with the same values. We don't really care about this, so we
         # normalise any normal-string columns as large-string columns.
         new_df1_pydict = {}
-        for col in df1.column_names:
+        for col in df1.schema.names:
             a = df1[col]
             if is_string(a.type):
                 a = a.cast(pa.large_string())
@@ -406,7 +409,7 @@ else:
             new_df1_pydict[col] = a
         df1 = pa.Table.from_pydict(new_df1_pydict)
         new_df2_pydict = {}
-        for col in df2.column_names:
+        for col in df2.schema.names:
             a = df2[col]
             if is_string(a.type):
                 a = a.cast(pa.large_string())
@@ -417,15 +420,29 @@ else:
 
         return df1.equals(df2)
 
-    pyarrow_libinfo = LibraryInfo(
-        name="pyarrow.Table",
-        mock_to_toplevel=pyarrow_mock_to_toplevel_table,
-        from_dataframe=pyarrow_from_dataframe,
-        frame_equal=pyarrow_frame_equal,
-    )
-    unskipped_params.append(pytest.param(pyarrow_libinfo, id=pyarrow_libinfo.name))
+    def pyarrow_batch_equal(*_):
+        pytest.skip(
+            "pa.RecordBatch.equals() does not treat NaNs as equal - "
+            "workaround is TODO"
+        )
 
-    # TODO: pyarrow.RecordBatch
+    def pyarrow_from_dataframe_to_batch(_):
+        pytest.skip("No from_dataframe() function for pyarrow.RecordBatch")
+
+    pa_table_libinfo = LibraryInfo(
+        name="pyarrow.Table",
+        mock_to_toplevel=mock_to_pa_table,
+        from_dataframe=pyarrow_from_dataframe,
+        frame_equal=pyarrow_table_equal,
+    )
+    pa_batch_libinfo = LibraryInfo(
+        name="pyarrow.RecordBatch",
+        mock_to_toplevel=mock_to_pa_batch,
+        from_dataframe=pyarrow_from_dataframe_to_batch,
+        frame_equal=pyarrow_batch_equal,
+    )
+    unskipped_params.append(pytest.param(pa_table_libinfo, id=pa_table_libinfo.name))
+    unskipped_params.append(pytest.param(pa_batch_libinfo, id=pa_batch_libinfo.name))
 
 
 # ------------------------------------------------------- End wrapping libraries
