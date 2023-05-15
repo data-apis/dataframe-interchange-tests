@@ -66,21 +66,23 @@ def test_pandas_frame_equal_string_object_columns():
     assert libinfo.frame_equal(df2, df1)
 
 
-def test_pyarrow_frame_equal_string_columns():
+@pytest.mark.parametrize("container_name", ["Table", "RecordBatch"])
+def test_pyarrow_frame_equal_string_columns(container_name):
     try:
         import pyarrow as pa
 
-        libinfo = libname_to_libinfo["pyarrow.Table"]
+        libinfo = libname_to_libinfo[f"pyarrow.{container_name}"]
     except (KeyError, ImportError) as e:
         pytest.skip(e.msg)
 
-    df1 = pa.Table.from_pydict(
+    container_class = getattr(pa, container_name)
+    df1 = container_class.from_pydict(
         {
             "a": pa.array(["foo"]),
             "b": pa.DictionaryArray.from_arrays(pa.array([0]), pa.array(["bar"])),
         }
     )
-    df2 = pa.Table.from_pydict(
+    df2 = container_class.from_pydict(
         {
             "a": pa.array(["foo"], type=pa.large_string()),
             "b": pa.DictionaryArray.from_arrays(

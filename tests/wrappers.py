@@ -1,6 +1,7 @@
 import re
 import string
 from copy import copy
+from functools import partial
 from typing import Any, Callable, Dict, List, NamedTuple, Set, Tuple
 from unittest.mock import MagicMock
 
@@ -363,8 +364,11 @@ else:
 
 try:
     import pyarrow as pa
+    from pyarrow.compute import invert as pa_invert
+    from pyarrow.compute import is_null as pa_is_null
     from pyarrow.interchange import from_dataframe as pyarrow_from_dataframe
-    from pyarrow.types import is_dictionary, is_string
+    from pyarrow.lib import DataType as ArrowDataType
+    from pyarrow.types import is_dictionary, is_large_string, is_string
 except ImportError as e:
     skipped_params.append(
         pytest.param(None, id="pyarrow.Table", marks=pytest.mark.skip(reason=e.msg))
@@ -395,35 +399,57 @@ else:
         table = pa.Table.from_batches([batch])
         return table
 
-    def pyarrow_table_equal(df1: pa.Table, df2: pa.Table) -> bool:
+    def pa_is_any_string(t: ArrowDataType) -> bool:
+        return is_string(t) or is_large_string(t)
+
+    pa_is_na = partial(pa_is_null, nan_is_null=True)
+
+    def pa_upcast_string_array(a: pa.Array) -> pa.Array:
+        if is_string(a.type):
+            a = a.cast(pa.large_string())
+        elif is_dictionary(a.type) and is_string(a.type.value_type):
+            a = a.cast(pa.dictionary(a.type.index_type, pa.large_string()))
+        return a
+
+    def pa_array_equal(a1: pa.Array, a2: pa.Array) -> bool:
+        if len(a1) != len(a2):
+            return False
+
         # Arrow fails equality when a normal-string and large-string column
         # equal with the same values. We don't really care about this, so we
         # normalise any normal-string columns as large-string columns.
-        new_df1_pydict = {}
-        for col in df1.schema.names:
-            a = df1[col]
-            if is_string(a.type):
-                a = a.cast(pa.large_string())
-            elif is_dictionary(a.type) and is_string(a.type.value_type):
-                a = a.cast(pa.dictionary(a.type.index_type, pa.large_string()))
-            new_df1_pydict[col] = a
-        df1 = pa.Table.from_pydict(new_df1_pydict)
-        new_df2_pydict = {}
-        for col in df2.schema.names:
-            a = df2[col]
-            if is_string(a.type):
-                a = a.cast(pa.large_string())
-            elif is_dictionary(a.type) and is_string(a.type.value_type):
-                a = a.cast(pa.dictionary(a.type.index_type, pa.large_string()))
-            new_df2_pydict[col] = a
-        df2 = pa.Table.from_pydict(new_df2_pydict)
+        a1 = pa_upcast_string_array(a1)
+        a2 = pa_upcast_string_array(a2)
 
-        return df1.equals(df2)
+        if a1.type != a2.type:
+            return False
 
-    def pyarrow_batch_equal(*_):
-        pytest.skip(
-            "pa.RecordBatch.equals() does not treat NaNs as equal - "
-            "workaround is TODO"
+        # Arrow can treat NaNs and null interchangably, so we treat them the same.
+        # See https://github.com/apache/arrow/issues/35535
+        na_mask1 = pa_is_na(a1)
+        na_mask2 = pa_is_na(a2)
+        if not na_mask1.equals(na_mask2):
+            return False
+
+        non_na_mask = pa_invert(na_mask1)
+        for e1, e2 in zip(a1.filter(non_na_mask), a2.filter(non_na_mask)):
+            if e1 != e2:
+                return False
+
+        return True
+
+    def pyarrow_table_equal(df1: pa.Table, df2: pa.Table) -> bool:
+        if set(df1.column_names) != set(df2.column_names):
+            return False
+        for col in df1.column_names:
+            if not pa_array_equal(df1[col], df2[col]):
+                return False
+        else:
+            return True
+
+    def pyarrow_batch_equal(df1: pa.RecordBatch, df2: pa.RecordBatch) -> bool:
+        return pyarrow_table_equal(
+            pa.Table.from_batches([df1]), pa.Table.from_batches([df2])
         )
 
     def pyarrow_from_dataframe_to_batch(_):
