@@ -23,6 +23,7 @@ jobs:
       run: |
         pip install ray git+https://github.com/modin-project/modin
         pip install vaex  # use stable as no nightly builds and long build time
+        pip install --extra-index-url https://pypi.fury.io/arrow-nightlies/ --prefer-binary --pre pyarrow --force-reinstall
         pip install --pre --extra-index https://pypi.anaconda.org/scipy-wheels-nightly/simple pandas --ignore-installed --no-deps
     - name: Run tests
       run: |
