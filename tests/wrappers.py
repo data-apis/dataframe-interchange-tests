@@ -145,7 +145,7 @@ try:
     from vaex.dataframe_protocol import from_dataframe_to_vaex as vaex_from_dataframe
 except ImportError as e:
     skipped_params.append(
-        pytest.param(None, id="modin", marks=pytest.mark.skip(reason=e.msg))
+        pytest.param(None, id="vaex", marks=pytest.mark.skip(reason=e.msg))
     )
 else:
 
@@ -211,6 +211,9 @@ try:
     if not hasattr(pandas.DataFrame, "mad"):
         setattr(pandas.DataFrame, "mad", MagicMock())
     setattr(pandas.core.indexing, "__getattr__", MagicMock())
+    setattr(pandas.core.dtypes.common, "__getattr__", MagicMock())
+    setattr(pandas.core.dtypes.astype, "__getattr__", MagicMock())
+    setattr(pandas.core.strings, "__getattr__", MagicMock())
     # ------------------------------------------------------------ end of hacks.
 
     import modin  # noqa: F401
@@ -358,7 +361,7 @@ else:
     unskipped_params.append(pytest.param(cudf_libinfo, id=cudf_libinfo.name))
 
 
-# Arrow
+# pyarrow
 # -------
 
 
