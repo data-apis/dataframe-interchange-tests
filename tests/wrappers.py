@@ -82,21 +82,13 @@ class LibraryInfo(NamedTuple):
         return f"LibraryInfo(<{self.name}>)"
 
 
-unskipped_params = []
-skipped_params = []
+# ------------------------------------------------------------------------------
+# Library wrappers
 
 
-# pandas
-# ------
-
-try:
+def make_pandas_libinfo() -> LibraryInfo:
     import pandas as pd
     from pandas.api.interchange import from_dataframe as pandas_from_dataframe
-except ImportError as e:
-    skipped_params.append(
-        pytest.param(None, id="pandas", marks=pytest.mark.skip(reason=e.msg))
-    )
-else:
 
     def mock_to_pd_df(mock_df: MockDataFrame) -> pd.DataFrame:
         if mock_df.ncols == 0:
@@ -125,7 +117,7 @@ else:
 
         return df1.equals(df2)
 
-    pandas_libinfo = LibraryInfo(
+    return LibraryInfo(
         name="pandas",
         mock_to_toplevel=mock_to_pd_df,
         from_dataframe=pandas_from_dataframe,
@@ -134,20 +126,11 @@ else:
         allow_zero_cols=False,
         allow_zero_rows=False,
     )
-    unskipped_params.append(pytest.param(pandas_libinfo, id=pandas_libinfo.name))
 
 
-# vaex
-# ----
-
-try:
+def make_vaex_libinfo() -> LibraryInfo:
     import vaex
     from vaex.dataframe_protocol import from_dataframe_to_vaex as vaex_from_dataframe
-except ImportError as e:
-    skipped_params.append(
-        pytest.param(None, id="vaex", marks=pytest.mark.skip(reason=e.msg))
-    )
-else:
 
     def mock_to_vaex_df(mock_df: MockDataFrame) -> TopLevelDataFrame:
         if mock_df.ncols == 0 or mock_df.nrows == 0:
@@ -186,7 +169,7 @@ else:
                 return False
         return True
 
-    vaex_libinfo = LibraryInfo(
+    return LibraryInfo(
         name="vaex",
         mock_to_toplevel=mock_to_vaex_df,
         from_dataframe=vaex_from_dataframe,
@@ -196,14 +179,9 @@ else:
         allow_zero_cols=False,
         allow_zero_rows=False,
     )
-    unskipped_params.append(pytest.param(vaex_libinfo, id=vaex_libinfo.name))
 
 
-# modin
-# -----
-
-
-try:
+def make_modin_libinfo() -> LibraryInfo:
     # ethereal hacks! ----------------------------------------------------------
     import pandas
 
@@ -228,11 +206,6 @@ try:
 
     from modin import pandas as mpd
     from modin.pandas.utils import from_dataframe as modin_from_dataframe
-except ImportError as e:
-    skipped_params.append(
-        pytest.param(None, id="modin", marks=pytest.mark.skip(reason=e.msg))
-    )
-else:
 
     def mock_to_modin_df(mock_df: MockDataFrame) -> mpd.DataFrame:
         if mock_df.ncols == 0:
@@ -268,7 +241,7 @@ else:
                 return False
         return True
 
-    modin_libinfo = LibraryInfo(
+    return LibraryInfo(
         name="modin",
         mock_to_toplevel=mock_to_modin_df,
         from_dataframe=modin_from_dataframe,
@@ -285,14 +258,9 @@ else:
         # https://github.com/modin-project/modin/issues/4643
         allow_zero_rows=False,
     )
-    unskipped_params.append(pytest.param(modin_libinfo, id=modin_libinfo.name))
 
 
-# cuDF
-# -----
-
-
-try:
+def make_cudf_libinfo() -> LibraryInfo:
     # ethereal hacks! ----------------------------------------------------------
     try:
         import pandas
@@ -324,11 +292,6 @@ try:
 
     import cudf
     from cudf.core.df_protocol import from_dataframe as cudf_from_dataframe
-except ImportError as e:
-    skipped_params.append(
-        pytest.param(None, id="cudf", marks=pytest.mark.skip(reason=e.msg))
-    )
-else:
 
     def mock_to_cudf_df(mock_df: MockDataFrame) -> cudf.DataFrame:
         if mock_df.ncols == 0:
@@ -349,7 +312,7 @@ else:
             df = cudf.concat(serieses, axis=1)
         return df
 
-    cudf_libinfo = LibraryInfo(
+    return LibraryInfo(
         name="cudf",
         mock_to_toplevel=mock_to_cudf_df,
         from_dataframe=cudf_from_dataframe,
@@ -361,30 +324,16 @@ else:
             NominalDtype.UTF8,
         },
     )
-    unskipped_params.append(pytest.param(cudf_libinfo, id=cudf_libinfo.name))
 
 
-# pyarrow
-# -------
-
-
-try:
+def make_pyarrow_libinfos() -> tuple[LibraryInfo, LibraryInfo]:
     import pyarrow as pa
     from pyarrow.compute import invert as pa_invert
     from pyarrow.compute import is_null as pa_is_null
     from pyarrow.interchange import from_dataframe as pyarrow_from_dataframe
     from pyarrow.lib import DataType as ArrowDataType
     from pyarrow.types import is_dictionary, is_large_string, is_string
-except ImportError as e:
-    skipped_params.append(
-        pytest.param(None, id="pyarrow.Table", marks=pytest.mark.skip(reason=e.msg))
-    )
-    skipped_params.append(
-        pytest.param(
-            None, id="pyarrow.RecordBatch", marks=pytest.mark.skip(reason=e.msg)
-        )
-    )
-else:
+
     dictionary = pa.array(string.ascii_lowercase, type=pa.string())
 
     def mock_to_pa_batch(mock_df: MockDataFrame) -> pa.RecordBatch:
@@ -473,23 +422,55 @@ else:
         from_dataframe=pyarrow_from_dataframe_to_batch,
         frame_equal=pyarrow_batch_equal,
     )
-    unskipped_params.append(pytest.param(pa_table_libinfo, id=pa_table_libinfo.name))
-    unskipped_params.append(pytest.param(pa_batch_libinfo, id=pa_batch_libinfo.name))
+
+    return pa_table_libinfo, pa_batch_libinfo
 
 
 # ------------------------------------------------------- End wrapping libraries
 
+
+unskipped_params = []
+skipped_params = []
+
+for libinfo_name, libinfo_factory in [
+    ("pandas", make_pandas_libinfo),
+    ("vaex", make_vaex_libinfo),
+    ("modin", make_modin_libinfo),
+    ("cudf", make_cudf_libinfo),
+]:
+    try:
+        libinfo = libinfo_factory()
+    except ImportError as e:
+        skipped_params.append(
+            pytest.param(None, id=libinfo_name, marks=pytest.mark.skip(reason=e.msg))
+        )
+    else:
+        assert libinfo.name == libinfo_name  # sanity check
+        unskipped_params.append(pytest.param(libinfo, id=libinfo.name))
+try:
+    pa_table_libinfo, pa_batch_libinfo = make_pyarrow_libinfos()
+except ImportError as e:
+    skipped_params.append(
+        pytest.param(None, id="pyarrow.Table", marks=pytest.mark.skip(reason=e.msg))
+    )
+    skipped_params.append(
+        pytest.param(
+            None, id="pyarrow.RecordBatch", marks=pytest.mark.skip(reason=e.msg)
+        )
+    )
+else:
+    unskipped_params.append(pytest.param(pa_table_libinfo, id=pa_table_libinfo.name))
+    unskipped_params.append(pytest.param(pa_batch_libinfo, id=pa_batch_libinfo.name))
 
 libinfo_params = skipped_params + unskipped_params
 ids = [p.id for p in libinfo_params]
 assert len(set(ids)) == len(ids), f"ids: {ids}"  # sanity check
 
 libname_to_libinfo: Dict[str, LibraryInfo] = {}
-for param in libinfo_params:
-    if not any(m.name.startswith("skip") for m in param.marks):
-        libinfo = param.values[0]
-        assert isinstance(libinfo, LibraryInfo)  # for mypy
-        libname_to_libinfo[libinfo.name] = libinfo
+for param in unskipped_params:
+    libinfo = param.values[0]
+    assert isinstance(libinfo, LibraryInfo)  # for mypy
+    libname_to_libinfo[libinfo.name] = libinfo
 
 if __name__ == "__main__":
     print(f"Wrapped libraries: {[p.id for p in unskipped_params]}")
