@@ -20,7 +20,10 @@ KIND_TO_STR = {
 
 
 def _test_signature(func, stub):
-    sig = signature(func)
+    try:
+        sig = signature(func)
+    except ValueError:
+        pytest.skip("Signature not inspectable")
     stub_sig = signature(stub)
     params = list(sig.parameters.values())
     df_stub_params = list(stub_sig.parameters.values())

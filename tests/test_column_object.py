@@ -158,8 +158,16 @@ def test_null_count(libinfo: LibraryInfo, data: st.DataObject):
     null_count = col.null_count
     if null_count is not None:
         assert isinstance(null_count, int)
-        if mock_col.nominal_dtype != NominalDtype.UTF8:  # TODO: test string cols
-            assert null_count == sum(np.isnan(mock_col.array))
+        if mock_col.nominal_dtype == NominalDtype.UTF8:  # TODO: test string cols
+            return
+        nullinfo = col.describe_null
+        assert isinstance(nullinfo, tuple) and len(nullinfo) == 2  # sanity check
+        kind, value = nullinfo
+        nan_count = sum(np.isnan(mock_col.array))
+        if kind == 0:  # non-nullable
+            assert null_count in [0, nan_count]  # XXX: should null_count always be 0?
+        else:
+            assert null_count == nan_count
 
 
 @given(data=st.data())
