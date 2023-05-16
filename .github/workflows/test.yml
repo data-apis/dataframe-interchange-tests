@@ -27,4 +27,4 @@ jobs:
         pip install --pre --extra-index https://pypi.anaconda.org/scipy-wheels-nightly/simple pandas --ignore-installed --no-deps
     - name: Run tests
       run: |
-        pytest tests/ -v --ci
+        pytest tests/ -vv --ci
