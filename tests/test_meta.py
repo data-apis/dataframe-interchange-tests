@@ -19,6 +19,7 @@ def test_ci_has_correct_library_params(pytestconfig):
         "modin",
         "pyarrow.Table",
         "pyarrow.RecordBatch",
+        "polars",
     }
 
 

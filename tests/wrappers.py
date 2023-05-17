@@ -104,7 +104,7 @@ def make_pandas_libinfo() -> LibraryInfo:
         df = pd.concat(serieses, axis=1)
         return df
 
-    def pandas_frame_equal(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
+    def pandas_frame_equal(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
         # pandas fails equality when an object and string column equal with the
         # same values. We don't really care about this, so we normalise any
         # string columns as object columns.
@@ -426,6 +426,61 @@ def make_pyarrow_libinfos() -> tuple[LibraryInfo, LibraryInfo]:
     return pa_table_libinfo, pa_batch_libinfo
 
 
+def make_polars_libinfo() -> LibraryInfo:
+    import polars as pl
+    from polars.convert import from_dataframe as pl_from_dataframe
+
+    def mock_to_pl_df(mock_df: MockDataFrame) -> pl.DataFrame:
+        if mock_df.ncols == 0:
+            return pl.DataFrame()
+        items: list[pl.DataFrame] = []
+        for name, (array, nominal_dtype) in mock_df.items():
+            item = pl.from_numpy(array.reshape((1, -1)), [name])
+            items.append(item)
+        df = pl.concat(items, how="horizontal")
+        return df
+
+    def pl_frame_equal(df1: pl.DataFrame, df2: pl.DataFrame) -> bool:
+        # Note pl.DataFrame.frame_equal(...) can't treat NaNs as as equal, and
+        # assert_frame_equal(...) can't treat nulls as equal.
+        # We also don't care to distinct NaNs from nulls.
+        # See https://github.com/apache/arrow/issues/35535#issuecomment-1543482341
+
+        if set(df1.columns) != set(df2.columns):
+            return False
+
+        for col in df1.columns:
+            s1 = df1[col]
+            s2 = df2[col]
+
+            if s1.dtype != s2.dtype:
+                return False
+
+            na_mask1 = s1.is_null()
+            na_mask2 = s2.is_null()
+            if s1.is_float():
+                na_mask1 |= s1.is_nan()
+                na_mask2 |= s2.is_nan()
+            if not (na_mask1 == na_mask2).all():
+                return False
+
+            if not (s1.filter(~na_mask1) == s2.filter(~na_mask1)).all():
+                return False
+
+        return True
+
+    return LibraryInfo(
+        name="polars",
+        mock_to_toplevel=mock_to_pl_df,
+        from_dataframe=pl_from_dataframe,
+        frame_equal=pl_frame_equal,
+        # TODO: support testing categoricals
+        supported_dtypes=set(NominalDtype) ^ {NominalDtype.CATEGORY},
+        # https://github.com/pola-rs/polars/issues/8884
+        allow_zero_cols=False,
+    )
+
+
 # ------------------------------------------------------- End wrapping libraries
 
 
@@ -437,6 +492,7 @@ for libinfo_name, libinfo_factory in [
     ("vaex", make_vaex_libinfo),
     ("modin", make_modin_libinfo),
     ("cudf", make_cudf_libinfo),
+    ("polars", make_polars_libinfo),
 ]:
     try:
         libinfo = libinfo_factory()

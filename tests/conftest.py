@@ -44,10 +44,15 @@ ci_xfail_ids = [
     "test_signatures.py::test_buffer_method[cudf-__dlpack_device__]",
     # https://github.com/vaexio/vaex/issues/2083
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pandas]",
-    # https://github.com/modin-project/modin/issues/6143
+    # TODO: triage
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-polars]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[polars-vaex]",
     # https://github.com/data-apis/dataframe-interchange-tests/pull/21#issuecomment-1495914398
     "test_from_dataframe.py::test_from_dataframe_roundtrip[pyarrow.Table-vaex]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-pyarrow.Table]",
+    # https://github.com/apache/arrow/issues/35713
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[polars-pyarrow.Table]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[pyarrow.Table-polars]",
     # https://github.com/rapidsai/cudf/issues/11389
     "test_column_object.py::test_dtype[cudf]",
     # https://github.com/modin-project/modin/issues/4687
@@ -68,6 +73,7 @@ ci_skip_ids = [
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-pandas]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-modin]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-vaex]",
+    "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-polars]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[vaex-modin]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[modin-pyarrow.Table]",
     "test_from_dataframe.py::test_from_dataframe_roundtrip[pyarrow.Table-modin]",

@@ -62,7 +62,6 @@ NOMINAL_TO_FSTRING: Dict[NominalDtype, str] = {
     NominalDtype.UINT64: "L",
     NominalDtype.FLOAT32: "f",
     NominalDtype.FLOAT64: "g",
-    NominalDtype.UTF8: "u",
 }
 
 
@@ -79,8 +78,11 @@ def test_dtype(libinfo: LibraryInfo, data: st.DataObject):
     assert isinstance(fstring, str)
     if mock_col.nominal_dtype == NominalDtype.DATETIME64NS:
         assert fstring.startswith("tsn")
-    # TODO: test categorical format string (i.e. using col's actual dtype)
-    elif mock_col.nominal_dtype != NominalDtype.CATEGORY:
+    elif mock_col.nominal_dtype == NominalDtype.UTF8:
+        assert fstring in ["u", "U"]
+    elif mock_col.nominal_dtype == NominalDtype.CATEGORY:
+        pass  # TODO: test categorical format string (i.e. using col's actual dtype)
+    else:
         assert fstring == NOMINAL_TO_FSTRING[mock_col.nominal_dtype]
     assert isinstance(endianness, str)
     assert len(endianness) == 1  # TODO: test actual value
