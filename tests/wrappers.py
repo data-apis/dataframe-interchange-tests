@@ -1,6 +1,4 @@
-import re
 import string
-from copy import copy
 from functools import partial
 from typing import Any, Callable, Dict, List, NamedTuple, Set, Tuple
 from unittest.mock import MagicMock
@@ -264,35 +262,6 @@ def make_modin_libinfo() -> LibraryInfo:
 
 
 def make_cudf_libinfo() -> LibraryInfo:
-    # ethereal hacks! ----------------------------------------------------------
-    try:
-        import pandas
-        import pyarrow
-        from pandas._libs.tslibs.parsing import guess_datetime_format
-        from pandas.core.tools import datetimes
-        from pyarrow.lib import ArrowKeyError
-    except ImportError:
-        pass
-    else:
-        old_register_extension_type = copy(pyarrow.register_extension_type)
-        r_existing_ext_type_msg = re.compile(
-            "A type extension with name pandas.[a-z_]+ already defined"
-        )
-
-        def register_extension_type(*a, **kw):
-            try:
-                old_register_extension_type(*a, **kw)
-            except ArrowKeyError as e:
-                if r_existing_ext_type_msg.fullmatch(str(e)):
-                    pass
-                else:
-                    raise e
-
-        setattr(pyarrow, "register_extension_type", register_extension_type)
-        setattr(datetimes, "_guess_datetime_format", guess_datetime_format)
-        setattr(pandas, "__version__", "1.4.3")
-    # ------------------------------------------------------------ end of hacks.
-
     import cudf
     from cudf.core.df_protocol import from_dataframe as cudf_from_dataframe
 
