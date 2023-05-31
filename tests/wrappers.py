@@ -1,6 +1,4 @@
-import re
 import string
-from copy import copy
 from functools import partial
 from typing import Any, Callable, Dict, List, NamedTuple, Set, Tuple
 from unittest.mock import MagicMock
@@ -28,9 +26,13 @@ class LibraryInfo(NamedTuple):
     mock_to_toplevel: Callable[[MockDataFrame], TopLevelDataFrame]
     from_dataframe: Callable[[TopLevelDataFrame], DataFrame]
     frame_equal: Callable[[TopLevelDataFrame, DataFrame], bool]
-    supported_dtypes: Set[NominalDtype] = set(NominalDtype)
+    excluded_dtypes: Set[NominalDtype] = set()
     allow_zero_cols: bool = True
     allow_zero_rows: bool = True
+
+    @property
+    def supported_dtypes(self) -> Set[NominalDtype]:
+        return set(NominalDtype) ^ self.excluded_dtypes
 
     def mock_to_interchange(self, mock_dataframe: MockDataFrame) -> DataFrame:
         toplevel_df = self.mock_to_toplevel(mock_dataframe)
@@ -174,7 +176,7 @@ def make_vaex_libinfo() -> LibraryInfo:
         mock_to_toplevel=mock_to_vaex_df,
         from_dataframe=vaex_from_dataframe,
         frame_equal=vaex_frame_equal,
-        supported_dtypes=set(NominalDtype) ^ {NominalDtype.DATETIME64NS},
+        excluded_dtypes={NominalDtype.DATETIME64NS},
         # https://github.com/vaexio/vaex/issues/2094
         allow_zero_cols=False,
         allow_zero_rows=False,
@@ -246,8 +248,7 @@ def make_modin_libinfo() -> LibraryInfo:
         mock_to_toplevel=mock_to_modin_df,
         from_dataframe=modin_from_dataframe,
         frame_equal=modin_frame_equal,
-        supported_dtypes=set(NominalDtype)
-        ^ {
+        excluded_dtypes={
             NominalDtype.DATETIME64NS,
             # https://github.com/modin-project/modin/issues/4654
             NominalDtype.UTF8,
@@ -261,35 +262,6 @@ def make_modin_libinfo() -> LibraryInfo:
 
 
 def make_cudf_libinfo() -> LibraryInfo:
-    # ethereal hacks! ----------------------------------------------------------
-    try:
-        import pandas
-        import pyarrow
-        from pandas._libs.tslibs.parsing import guess_datetime_format
-        from pandas.core.tools import datetimes
-        from pyarrow.lib import ArrowKeyError
-    except ImportError:
-        pass
-    else:
-        old_register_extension_type = copy(pyarrow.register_extension_type)
-        r_existing_ext_type_msg = re.compile(
-            "A type extension with name pandas.[a-z_]+ already defined"
-        )
-
-        def register_extension_type(*a, **kw):
-            try:
-                old_register_extension_type(*a, **kw)
-            except ArrowKeyError as e:
-                if r_existing_ext_type_msg.fullmatch(str(e)):
-                    pass
-                else:
-                    raise e
-
-        setattr(pyarrow, "register_extension_type", register_extension_type)
-        setattr(datetimes, "_guess_datetime_format", guess_datetime_format)
-        setattr(pandas, "__version__", "1.4.3")
-    # ------------------------------------------------------------ end of hacks.
-
     import cudf
     from cudf.core.df_protocol import from_dataframe as cudf_from_dataframe
 
@@ -317,8 +289,7 @@ def make_cudf_libinfo() -> LibraryInfo:
         mock_to_toplevel=mock_to_cudf_df,
         from_dataframe=cudf_from_dataframe,
         frame_equal=lambda df1, df2: df1.equals(df2),  # NaNs considered equal
-        supported_dtypes=set(NominalDtype)
-        ^ {
+        excluded_dtypes={
             NominalDtype.DATETIME64NS,
             # https://github.com/rapidsai/cudf/issues/11308
             NominalDtype.UTF8,
@@ -475,7 +446,7 @@ def make_polars_libinfo() -> LibraryInfo:
         from_dataframe=pl_from_dataframe,
         frame_equal=pl_frame_equal,
         # TODO: support testing categoricals
-        supported_dtypes=set(NominalDtype) ^ {NominalDtype.CATEGORY},
+        excluded_dtypes={NominalDtype.CATEGORY},
         # https://github.com/pola-rs/polars/issues/8884
         allow_zero_cols=False,
     )
